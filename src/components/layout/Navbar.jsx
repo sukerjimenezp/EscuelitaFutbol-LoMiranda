@@ -26,6 +26,7 @@ const Navbar = () => {
       <ul className="nav-links">
         <li><Link to="/" className={location.pathname === '/' ? 'active' : ''}>Inicio</Link></li>
         <li><Link to="/categorias" className={location.pathname.includes('/categorias') ? 'active' : ''}>Categorías</Link></li>
+        <li><Link to="/galeria" className={location.pathname === '/galeria' ? 'active' : ''}>Galería</Link></li>
         <li><Link to="/streaming" className={location.pathname === '/streaming' ? 'active' : ''}>Streaming</Link></li>
 
         {isAuthenticated ? (

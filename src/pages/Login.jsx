@@ -8,17 +8,20 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const result = login(username, password);
+    setLoading(true);
+    const result = await login(username, password);
+    setLoading(false);
     if (result.success) {
       navigate('/dashboard');
     } else {
-      setError(result.error);
+      setError(result.error || 'Credenciales incorrectas. Inténtalo de nuevo.');
     }
   };
 
@@ -28,19 +31,18 @@ const Login = () => {
         <div className="login-header">
           <img src={logo} alt="Lo Miranda FC" className="login-logo" />
           <h2>Escuelita <span className="text-sky">Lo Miranda</span></h2>
-          <p>Ingresa al panel de gestión</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="login-error">{error}</div>}
 
           <div className="form-group">
-            <label>Correo o Nombre de Usuario</label>
+            <label>Correo electrónico</label>
             <input
-              type="text"
+              type="email"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Ej: tu@correo.cl o mateo"
+              placeholder="tu@correo.cl"
               required
             />
           </div>
@@ -56,19 +58,10 @@ const Login = () => {
             />
           </div>
 
-          <button type="submit" className="btn-login">Ingresar</button>
+          <button type="submit" className="btn-login" disabled={loading}>
+            {loading ? 'Ingresando...' : 'Ingresar'}
+          </button>
         </form>
-
-        <div className="login-hint">
-          <p><strong>Cuentas de prueba:</strong></p>
-          <div className="hint-grid">
-            <p>Admin: <code>admin@lomiranda.cl</code> / <code>admin2026</code></p>
-            <p>DT: <code>dt@lomiranda.cl</code> / <code>dt2026</code></p>
-            <p>Contabilidad: <code>contador@lomiranda.cl</code> / <code>contador2026</code></p>
-            <p>Padre: <code>padre@lomiranda.cl</code> / <code>padre2026</code></p>
-            <p>Jugador (Niño): Usuario <code>mateo</code> / Clave <code>jugador2026</code></p>
-          </div>
-        </div>
       </div>
     </div>
   );

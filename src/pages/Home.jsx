@@ -37,23 +37,23 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Quick Features (sin Balance) */}
+      {/* Quick Features */}
       <section className="features-grid">
-        <div className="feature-card glass">
+        <Link to="/streaming" className="feature-card glass feature-link">
           <div className="feature-icon">📡</div>
           <h3>Streaming en Vivo</h3>
           <p>Transmite los partidos para los padres que no pueden asistir a la cancha.</p>
-        </div>
-        <div className="feature-card glass">
-          <div className="feature-icon">📋</div>
-          <h3>Panel del DT</h3>
-          <p>Calendario de entrenamientos, partidos, asistencias y tácticas.</p>
-        </div>
-        <div className="feature-card glass">
+        </Link>
+        <Link to="/categorias" className="feature-card glass feature-link">
           <div className="feature-icon">⚽</div>
           <h3>Categorías</h3>
           <p>Desde Sub-6 hasta Adultos. Cada categoría con su plantilla y cuerpo técnico.</p>
-        </div>
+        </Link>
+        <Link to="/galeria" className="feature-card glass feature-link">
+          <div className="feature-icon">📸</div>
+          <h3>Galería</h3>
+          <p>Fotos y videos de los mejores momentos del club dentro y fuera de la cancha.</p>
+        </Link>
       </section>
 
       {/* Sponsors Section */}

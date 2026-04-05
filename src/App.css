@@ -417,6 +417,14 @@
   line-height: 1.7;
 }
 
+.feature-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  cursor: pointer;
+}
+
+
 /* ========= SPONSORS ========= */
 .sponsors-section {
   margin: 0 5% 60px;

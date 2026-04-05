@@ -15,6 +15,7 @@ import Categories from './pages/Categories';
 import TeamPage from './pages/TeamPage';
 import Login from './pages/Login';
 import Streaming from './pages/Streaming';
+import GalleryPublic from './pages/GalleryPublic';
 
 // Páginas Dashboard
 import Dashboard from './pages/Dashboard';
@@ -30,6 +31,7 @@ import SkinsManagement from './pages/dashboard/SkinsManagement';
 import CoachMessages from './pages/dashboard/CoachMessages';
 import StreamingConfig from './pages/dashboard/StreamingConfig';
 import Trivia from './pages/dashboard/Trivia';
+import Gallery from './pages/dashboard/Gallery';
 
 import './App.css';
 
@@ -72,6 +74,7 @@ function App() {
               <Route path="/categorias/:categoryId" element={<PublicLayout><TeamPage /></PublicLayout>} />
               <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
               <Route path="/streaming" element={<PublicLayout><Streaming /></PublicLayout>} />
+              <Route path="/galeria" element={<PublicLayout><GalleryPublic /></PublicLayout>} />
 
               {/* --- RUTAS DASHBOARD (PROTEGIDAS) --- */}
               <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dt', 'contador', 'parent', 'player']} />}>
@@ -93,7 +96,7 @@ function App() {
                 <Route path="/dashboard/trivia" element={<Trivia />} />
                 
                 {/* Placeholders Finales */}
-                <Route path="/dashboard/galeria" element={<div>Galería Multimedia - Próximamente</div>} />
+                <Route path="/dashboard/galeria" element={<Gallery />} />
                 <Route path="/dashboard/config" element={<div>Configuración del Sistema - Próximamente</div>} />
                 <Route path="/dashboard/pagos" element={<Finance />} />
                 <Route path="/dashboard/stats" element={<Stats />} />
