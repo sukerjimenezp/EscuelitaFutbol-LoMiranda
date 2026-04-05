@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../data/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { Lock, Unlock, Zap, Trophy, Shield, Star, CheckCircle, MessageSquare, Heart } from 'lucide-react';
 import './PlayerProfile.css';
 
