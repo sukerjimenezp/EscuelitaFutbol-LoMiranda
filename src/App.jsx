@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'react'; // Triggering redeploy for env vars
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './data/AuthContext';
 import { LiveProvider } from './data/LiveContext';
