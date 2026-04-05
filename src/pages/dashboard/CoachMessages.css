@@ -1,0 +1,171 @@
+.coach-messages-layout {
+  display: flex;
+  gap: 30px;
+  height: calc(100vh - 220px);
+}
+
+.players-selector-sidebar {
+  width: 280px;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.selector-filters {
+  padding: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.selector-filters select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.search-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.search-mini input {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  width: 100%;
+  outline: none;
+}
+
+.players-mini-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.player-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: none;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.player-item-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+.player-item-btn.active {
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--sky-400);
+}
+
+.player-item-btn img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.player-btn-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.p-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.p-dorsal {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono, monospace);
+}
+
+.feedback-editor-container {
+  flex: 1;
+  display: flex;
+}
+
+.feedback-form-card {
+  width: 100%;
+  padding: 30px;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.points-input-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.add-point-btn {
+  width: 44px;
+  height: 44px;
+  background: var(--sky-500);
+  color: white;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.point-item-edit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px 15px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.point-item-edit span {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.point-item-edit button {
+  background: none;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.point-item-edit button:hover {
+  color: #ef4444;
+  opacity: 1;
+}
+
+.empty-feedback-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  gap: 15px;
+}

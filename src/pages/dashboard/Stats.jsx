@@ -1,0 +1,188 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { useAuth } from '../../data/AuthContext';
+import { playersByCategory } from '../../data/mockData';
+import { Search, Trophy, Shield, Star, Zap, Target, Activity, MessageCircle, Heart, Medal, Flame } from 'lucide-react';
+import logo from '../../assets/logo.jpg';
+import jerseyImg from '../../images/camiseta-transparente.png';
+import './Stats.css';
+
+const SkillBar = ({ label, value, icon: Icon, color }) => {
+  const [width, setWidth] = useState(0);
+  
+  useEffect(() => {
+    // Retrasar animación levemente para un efecto progresivo
+    const timer = setTimeout(() => setWidth(value), 300);
+    return () => clearTimeout(timer);
+  }, [value]);
+
+  return (
+    <div className="skill-bar-container">
+      <div className="skill-header">
+        <span className="skill-label" style={{ color }}><Icon size={18} /> {label}</span>
+        <span className="skill-value" style={{ color }}>{value}</span>
+      </div>
+      <div className="progress-bg">
+        <div 
+          className="progress-fill" 
+          style={{ width: `${width}%`, backgroundColor: color }} 
+        />
+      </div>
+    </div>
+  );
+};
+
+const Stats = () => {
+  const { user, isPlayer, isParent } = useAuth();
+  
+  const [selectedCat, setSelectedCat] = useState(isPlayer || isParent ? (user.category || 'sub10') : 'sub12');
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  const allPlayers = playersByCategory[selectedCat] || [];
+  
+  const filteredPlayers = (isPlayer || isParent) 
+    ? allPlayers.filter(p => p.name.includes(user.name.split(' ')[0]))
+    : allPlayers.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+  const [selectedPlayer, setSelectedPlayer] = useState(filteredPlayers[0] || allPlayers[0] || null);
+
+  useEffect(() => {
+    if ((isPlayer || isParent) && filteredPlayers.length > 0) {
+      setSelectedPlayer(filteredPlayers[0]);
+    }
+  }, [isPlayer, isParent, filteredPlayers]);
+
+  const advancedStats = useMemo(() => {
+    if(!selectedPlayer) return null;
+    const base = selectedPlayer.overall;
+    
+    return {
+      dtNotes: [
+        "¡Excelente esfuerzo corriendo en la cancha! 🏃‍♂️",
+        "Trata de levantar más la cabeza al pasar el balón 👀",
+        "Me gusta mucho tu actitud de compañerismo 🤝"
+      ]
+    };
+  }, [selectedPlayer]);
+
+  if (!selectedPlayer && allPlayers.length > 0) setSelectedPlayer(allPlayers[0]);
+
+  return (
+    <div className="kid-stats-dashboard">
+      
+      {/* Sidebar de Selección */}
+      {!(isPlayer || (isParent && filteredPlayers.length <= 1)) && (
+        <div className="kid-sidebar glass-panel">
+          <h2 className="kid-sidebar-title">Equipos ⚽</h2>
+          
+          <div className="kid-filters">
+            <select value={selectedCat} onChange={e => { setSelectedCat(e.target.value); setSelectedPlayer(playersByCategory[e.target.value]?.[0] || null); }}>
+              {Object.keys(playersByCategory).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}
+            </select>
+            
+            <div className="kid-search-box">
+              <Search size={18} />
+              <input type="text" placeholder="Buscar amigo..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="kid-player-grid">
+            {filteredPlayers.map(p => (
+              <div 
+                key={p.id} 
+                className={`kid-player-card ${selectedPlayer?.id === p.id ? 'active' : ''}`}
+                onClick={() => setSelectedPlayer(p)}
+              >
+                <div className="avatar-wrapper">
+                  <img src={p.image} alt={p.name} />
+                  <span className="mini-overall">{p.overall}</span>
+                </div>
+                <strong>{p.name.split(' ')[0]}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tarjeta de Estadísticas Principal (Playful Layout) */}
+      <div className="kid-main-panel">
+        {selectedPlayer && advancedStats ? (
+          <div className="kid-hero-card">
+            
+            {/* Header del Perfil */}
+            <div className="kid-hero-header">
+              <div className="p-info">
+                <h1>{selectedPlayer.name}</h1>
+                <div className="p-badges">
+                  <span className="position-badge"><Star size={16} /> {selectedPlayer.position}</span>
+                  <span className="season-badge">TEMPORADA 2026</span>
+                </div>
+              </div>
+              <div className="p-logo">
+                <img src={logo} alt="Club Local" />
+              </div>
+            </div>
+
+            <div className="kid-hero-content">
+              
+              {/* Columna Izquierda: Skills Mágicos */}
+              <div className="kid-skills-col">
+                <h3 className="section-title"><Activity size={24} /> PUNTOS DE HABILIDAD</h3>
+                <div className="skills-container">
+                  <SkillBar label="Velocidad" value={selectedPlayer.pace} icon={Zap} color="#f59e0b" />
+                  <SkillBar label="Tiro a Puerta" value={selectedPlayer.shooting} icon={Target} color="#ef4444" />
+                  <SkillBar label="Pases" value={selectedPlayer.passing} icon={Activity} color="#3b82f6" />
+                  <SkillBar label="Regate Mágico" value={selectedPlayer.dribbling} icon={Star} color="#a855f7" />
+                  <SkillBar label="Defensa Fuerte" value={selectedPlayer.defense} icon={Shield} color="#10b981" />
+                  <SkillBar label="Energía" value={selectedPlayer.physical} icon={Flame} color="#f97316" />
+                </div>
+              </div>
+
+              {/* Columna Central: Uniforme Elevado */}
+              <div className="kid-center-col">
+                <div className="spotlight-bg"></div>
+                <div className="kit-wrapper">
+                  <img src={jerseyImg} alt="Kit Oficial" className="floating-kit" />
+                </div>
+                
+                <div className="overall-badge bounce">
+                  <span className="o-label">NIVEL</span>
+                  <span className="o-val">{selectedPlayer.overall}</span>
+                </div>
+              </div>
+
+              {/* Columna Derecha: Mensajes del DT */}
+              <div className="kid-feedback-col">
+                <h3 className="section-title dt-color"><MessageCircle size={24} /> EL PROFE DICE</h3>
+                
+                <div className="dt-chat-bubble glass-panel highlight-border">
+                  <div className="dt-header">
+                    <Trophy size={20} color="#fbbf24" />
+                    <strong>¡Buen Trabajo!</strong>
+                  </div>
+                  <p className="dt-greeting">Hola {selectedPlayer.name.split(' ')[0]}, vi tus últimos partidos y miedos en la cancha, ¡has mejorado mucho!</p>
+                  
+                  <ul className="dt-notes-list">
+                    {advancedStats.dtNotes.map((note, i) => (
+                      <li key={i}><Heart size={14} color="#ef4444" /> {note}</li>
+                    ))}
+                  </ul>
+                  
+                  <div className="dt-signature">
+                    <Medal size={16} /> ¡A seguir divirtiéndonos!
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+
+          </div>
+        ) : (
+          <div className="kid-empty-state text-muted">Selecciona un amigo para ver sus superpoderes.</div>
+        )}
+      </div>
+
+    </div>
+  );
+};
+
+export default Stats;

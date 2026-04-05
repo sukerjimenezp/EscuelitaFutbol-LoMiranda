@@ -1,0 +1,111 @@
+.soccer-pitch-container {
+  width: 100%;
+  max-width: 1100px;
+  aspect-ratio: 100 / 70;
+  margin: 0 auto;
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  background: #1a6b30;
+  border: 4px solid #145325;
+}
+
+.pitch-grass {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    repeating-linear-gradient(
+      90deg,
+      #1a6b30 0%,
+      #1a6b30 10%,
+      #1e7a37 10%,
+      #1e7a37 20%
+    );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pitch-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pitch-players-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+}
+
+/* Mini Player Cards inside Pitch */
+.pitch-player {
+  position: absolute;
+  width: 60px;
+  height: 85px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: grab;
+  color: white;
+  background: linear-gradient(180deg, rgba(11, 42, 94, 0.9) 0%, rgba(7, 20, 40, 0.8) 100%);
+  border: 1px solid var(--sky-400);
+  clip-path: polygon(50% 0%, 100% 15%, 100% 85%, 50% 100%, 0% 85%, 0% 15%);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s;
+  z-index: 100;
+}
+
+.pitch-player:hover {
+  transform: scale(1.1);
+  box-shadow: 0 10px 20px rgba(56, 189, 248, 0.3);
+  z-index: 101;
+}
+
+.pitch-player img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pitch-player .player-ovr {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: var(--sky-400);
+}
+
+.pitch-player .player-name {
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+}
+
+/* Positions coordinates - Examples for 4-3-3 */
+.pos-por { left: 5%; top: 50%; transform: translate(-50%, -50%); }
+.pos-dfc-li { left: 20%; top: 20%; transform: translate(-50%, -50%); }
+.pos-dfc-ld { left: 20%; top: 80%; transform: translate(-50%, -50%); }
+
+@media (max-width: 768px) {
+  .pitch-player { width: 45px; height: 65px; padding: 5px; }
+  .pitch-player img { width: 22px; height: 22px; }
+  .pitch-player .player-name { font-size: 0.45rem; }
+}

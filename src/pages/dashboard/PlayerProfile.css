@@ -1,0 +1,328 @@
+/* src/pages/dashboard/PlayerProfile.css */
+
+.gamer-profile-container {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Banner Superior */
+.gamer-profile-banner {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 24px;
+  padding: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.gamer-profile-banner::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at 0% 50%, rgba(56, 189, 248, 0.15) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.gp-avatar-section {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  z-index: 1;
+}
+
+.gp-avatar-ring {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+  border: 4px solid #38bdf8;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.gp-current-avatar {
+  width: 90px;
+  height: 90px;
+  object-fit: cover;
+}
+
+.gp-user-info h1 {
+  margin: 0 0 8px 0;
+  font-size: 2.5rem;
+  color: #fff;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.gp-role-badge {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+}
+
+.gp-stats-row {
+  display: flex;
+  gap: 20px;
+  z-index: 1;
+}
+
+.gp-stat-box {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  padding: 15px 25px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.span-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-num {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: white;
+  line-height: 1;
+}
+
+.stat-lbl {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.6);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.text-sky { color: #38bdf8; }
+.text-red { color: #ef4444; }
+.text-green { color: #10b981; }
+
+/* ARMARIO DE SKINS */
+.skin-locker-section {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 24px;
+  padding: 30px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.locker-header {
+  margin-bottom: 30px;
+}
+
+.locker-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+  font-size: 2rem;
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  font-weight: 900;
+}
+
+.locker-header p {
+  color: rgba(255,255,255,0.6);
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.skins-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+/* Tarjeta de Skin */
+.skin-card {
+  position: relative;
+  background: #1e293b;
+  border-radius: 16px;
+  padding: 15px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.skin-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.skin-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.6);
+}
+
+.skin-image-container {
+  width: 100%;
+  aspect-ratio: 1/1;
+  background: rgba(0,0,0,0.2);
+  border-radius: 12px;
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.skin-image-container img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 10px rgba(0,0,0,0.5));
+  transition: transform 0.3s;
+}
+
+.skin-card:hover .skin-image-container img {
+  transform: scale(1.1);
+}
+
+.skin-info h3 {
+  margin: 0 0 8px 0;
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.skin-condition {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: rgba(255,255,255,0.7);
+  font-size: 0.8rem;
+  text-align: center;
+  background: rgba(0,0,0,0.3);
+  padding: 6px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.skin-rarity-badge {
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  padding: 4px 0;
+  border-radius: 4px;
+}
+
+/* === NIVELES DE RAREZA (NEON STYLES) === */
+
+/* Common */
+.rarity-common.unlocked {
+  border-color: #94a3b8;
+  box-shadow: 0 0 15px rgba(148, 163, 184, 0.2);
+}
+.rarity-common .skin-rarity-badge { color: #94a3b8; background: rgba(148,163,184,0.1); }
+
+/* Rare */
+.rarity-rare.unlocked {
+  border-color: #10b981;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+.rarity-rare .skin-rarity-badge { color: #10b981; background: rgba(16,185,129,0.1); }
+
+/* Epic */
+.rarity-epic.unlocked {
+  border-color: #a855f7;
+  box-shadow: 0 0 25px rgba(168, 85, 247, 0.4);
+}
+.rarity-epic .skin-rarity-badge { color: #a855f7; background: rgba(168,85,247,0.1); }
+
+/* Legendary */
+.rarity-legendary.unlocked {
+  border-color: #fbbf24;
+  box-shadow: 0 0 30px rgba(251, 191, 36, 0.5);
+  animation: legendaryPulse 2s infinite;
+}
+.rarity-legendary .skin-rarity-badge { color: #fbbf24; background: rgba(251,191,36,0.1); }
+
+@keyframes legendaryPulse {
+  0% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.3); }
+  50% { box-shadow: 0 0 35px rgba(251, 191, 36, 0.7); }
+  100% { box-shadow: 0 0 15px rgba(251, 191, 36, 0.3); }
+}
+
+/* === ESTADO BLOQUEADO === */
+.skin-card.locked {
+  filter: grayscale(80%) brightness(0.6);
+  cursor: not-allowed;
+  border-color: #334155;
+}
+
+.skin-card.locked:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.skin-lock-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  z-index: 10;
+  backdrop-filter: blur(2px);
+}
+
+.lock-text {
+  color: white;
+  font-weight: 800;
+  letter-spacing: 2px;
+  font-size: 0.9rem;
+}
+
+/* === EQUIPADO === */
+.skin-card.equipped {
+  border-width: 3px;
+  transform: scale(1.02);
+}
+
+.equipped-stamp {
+  position: absolute;
+  top: 15px;
+  right: -30px;
+  background: #ef4444;
+  color: white;
+  font-weight: 900;
+  font-size: 0.75rem;
+  padding: 4px 30px;
+  transform: rotate(45deg);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  z-index: 5;
+  letter-spacing: 1px;
+}

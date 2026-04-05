@@ -1,0 +1,97 @@
+.mini-player-card {
+  width: 70px;
+  height: 95px;
+  background: linear-gradient(135deg, var(--blue-900) 0%, #040d1e 100%);
+  border: 1px solid var(--sky-400);
+  clip-path: polygon(50% 0%, 100% 15%, 100% 85%, 50% 100%, 0% 85%, 0% 15%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 5px;
+  cursor: grab;
+  color: white;
+  user-select: none;
+  filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.4));
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.mini-player-card:active {
+  cursor: grabbing;
+}
+
+.mini-player-card.on-pitch {
+  z-index: 100;
+}
+
+.mini-player-card.on-bench {
+  width: 100%;
+  height: 60px;
+  clip-path: none;
+  border-radius: 10px;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 15px;
+  padding: 8px 15px;
+}
+
+.mini-card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: absolute;
+  top: 15px;
+  left: 10px;
+}
+
+.on-bench .mini-card-header {
+  position: static;
+}
+
+.mini-ovr {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mini-pos {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--sky-400);
+  text-transform: uppercase;
+}
+
+.mini-avatar {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  margin-top: 5px;
+}
+
+.on-bench .mini-avatar {
+  width: 35px;
+  height: 35px;
+  margin: 0;
+}
+
+.mini-name {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+  width: 100%;
+}
+
+.on-bench .mini-name {
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .mini-player-card { width: 55px; height: 75px; padding: 6px 4px; }
+  .mini-avatar { width: 30px; height: 30px; }
+  .mini-ovr { font-size: 0.9rem; }
+}

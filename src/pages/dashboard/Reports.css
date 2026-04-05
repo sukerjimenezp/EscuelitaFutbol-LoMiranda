@@ -1,0 +1,151 @@
+.reports-page {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.reports-search-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 25px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 20px;
+}
+
+.search-input-group {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 15px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 12px 20px;
+  border-radius: 12px;
+}
+
+.search-input-group input {
+  background: transparent;
+  border: none;
+  width: 100%;
+  color: white;
+  font-size: 1rem;
+  outline: none;
+}
+
+.search-input-group input::placeholder {
+  color: var(--text-muted);
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 12px 20px;
+  border-radius: 12px;
+}
+
+.filter-group select {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.filter-group select option {
+  background: var(--bg-surface);
+  color: white;
+}
+
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.report-card {
+  display: flex;
+  flex-direction: column;
+  padding: 30px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.report-card:hover {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(56, 189, 248, 0.3);
+  box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+}
+
+.rc-icon {
+  width: 60px;
+  height: 60px;
+  background: rgba(56, 189, 248, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  margin-bottom: 20px;
+}
+
+.rc-info h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 8px;
+}
+
+.rc-info p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 20px;
+  min-height: 40px;
+}
+
+.rc-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 25px;
+}
+
+.rc-badge.financiero { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
+.rc-badge.administrativo { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+.rc-badge.deportivo { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+.rc-btn {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.no-reports-msg {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 50px;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+  .reports-search-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
