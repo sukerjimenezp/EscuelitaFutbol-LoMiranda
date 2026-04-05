@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../../lib/supabase';
 import { 
-  categories, 
-  playersByCategory 
+  categories 
 } from '../../data/mockData';
 import { 
   Search, 
@@ -21,6 +21,8 @@ const CoachMessages = () => {
   const [selectedCategory, setSelectedCategory] = useState('sub10');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   const [feedback, setFeedback] = useState({
     title: '¡BUEN TRABAJO!',
@@ -31,27 +33,64 @@ const CoachMessages = () => {
 
   const [newPoint, setNewPoint] = useState('');
 
-  // Cargar datos de localStorage al seleccionar jugador
+  const fetchPlayers = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('category_id', selectedCategory)
+      .eq('role', 'player');
+    
+    setPlayers(data || []);
+    setLoading(false);
+  }, [selectedCategory]);
+
   useEffect(() => {
-    if (selectedPlayer) {
-      const saved = localStorage.getItem(`coach_feedback_${selectedPlayer.id}`);
-      if (saved) {
-        setFeedback(JSON.parse(saved));
-      } else {
-        setFeedback({
-          title: '¡BUEN TRABAJO!',
-          message: `Hola ${selectedPlayer.name.split(' ')[0]}, vi tus últimos entrenamientos y...`,
-          points: ['Excelente actitud en el campo', 'Sigue practicando tu técnica de pase'],
-          footer: '¡A seguir divirtiéndonos!'
-        });
-      }
+    fetchPlayers();
+  }, [fetchPlayers]);
+
+  const fetchPlayerFeedback = useCallback(async (playerId) => {
+    const { data } = await supabase
+      .from('feedback')
+      .select('*')
+      .eq('player_id', playerId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (data) {
+      setFeedback(data);
+    } else {
+      setFeedback({
+        title: '¡BUEN TRABAJO!',
+        message: `Hola ${selectedPlayer.full_name.split(' ')[0]}, vi tus últimos entrenamientos y...`,
+        points: ['Excelente actitud en el campo', 'Sigue practicando tu técnica de pase'],
+        footer: '¡A seguir divirtiéndonos!'
+      });
     }
   }, [selectedPlayer]);
 
-  const handleSave = () => {
+  useEffect(() => {
+    if (selectedPlayer) {
+      fetchPlayerFeedback(selectedPlayer.id);
+    }
+  }, [selectedPlayer, fetchPlayerFeedback]);
+
+  const handleSave = async () => {
     if (!selectedPlayer) return;
-    localStorage.setItem(`coach_feedback_${selectedPlayer.id}`, JSON.stringify(feedback));
-    alert(`Mensaje para ${selectedPlayer.name} guardado con éxito.`);
+    
+    const { error } = await supabase
+      .from('feedback')
+      .upsert({
+        player_id: selectedPlayer.id,
+        title: feedback.title,
+        message: feedback.message,
+        points: feedback.points,
+        footer: feedback.footer
+      }, { onConflict: 'player_id' });
+
+    if (error) alert('Error: ' + error.message);
+    else alert(`Mensaje para ${selectedPlayer.full_name} guardado con éxito.`);
   };
 
   const addPoint = () => {
@@ -68,9 +107,8 @@ const CoachMessages = () => {
     }));
   };
 
-  const players = playersByCategory[selectedCategory] || [];
   const filteredPlayers = players.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    p.full_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -107,9 +145,9 @@ const CoachMessages = () => {
                 className={`player-item-btn ${selectedPlayer?.id === p.id ? 'active' : ''}`}
                 onClick={() => setSelectedPlayer(p)}
               >
-                <img src={p.image} alt="" />
+                <img src={p.avatar_url} alt="" />
                 <div className="player-btn-info">
-                  <span className="p-name">{p.name}</span>
+                  <span className="p-name">{p.full_name}</span>
                   <span className="p-dorsal">#{p.dorsal}</span>
                 </div>
               </button>
@@ -128,7 +166,7 @@ const CoachMessages = () => {
             >
               <div className="editor-header">
                 <MessageSquare size={20} className="text-sky" />
-                <h2>Editando Mensaje para <span className="text-sky">{selectedPlayer.name} (#{selectedPlayer.dorsal})</span></h2>
+                <h2>Editando Mensaje para <span className="text-sky">{selectedPlayer.full_name} (#{selectedPlayer.dorsal})</span></h2>
               </div>
 
               <div className="form-fields">
@@ -158,7 +196,7 @@ const CoachMessages = () => {
                     <input 
                       type="text" 
                       value={newPoint}
-                      onChange={e => setNewPoint(e.target.value)}
+                      onChange={setNewPoint && (e => setNewPoint(e.target.value))}
                       placeholder="Ej: Excelente esfuerzo hoy"
                       onKeyPress={e => e.key === 'Enter' && addPoint()}
                     />
@@ -187,7 +225,7 @@ const CoachMessages = () => {
 
                 <button className="btn-primary save-feedback-btn" onClick={handleSave}>
                   <Save size={18} />
-                  Publicar en el Perfil de {selectedPlayer.name.split(' ')[0]}
+                  Publicar en el Perfil de {selectedPlayer.full_name?.split(' ')[0]}
                 </button>
               </div>
             </motion.div>

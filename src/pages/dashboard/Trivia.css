@@ -1,0 +1,186 @@
+.trivia-page {
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.trivia-container {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 3rem;
+  margin-top: 2rem;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2rem;
+}
+
+.trivia-status {
+  padding: 0.75rem 1.5rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.trivia-status strong {
+  color: var(--sky-400);
+}
+
+.trivia-start-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.trivia-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  margin: 1rem 0;
+}
+
+.trivia-rules .rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  color: #94a3b8;
+}
+
+.trivia-rules .rule.danger {
+  color: #ef4444;
+}
+
+.trivia-question-view {
+  width: 100%;
+}
+
+.question-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.question-text {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 2.5rem;
+  line-height: 1.2;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 3rem;
+}
+
+.option-btn {
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.option-btn:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: var(--sky-500);
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px -10px rgba(56, 189, 248, 0.4);
+}
+
+.risky-toggle-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 1.5rem;
+  margin-top: 2rem;
+  transition: all 0.3s ease;
+}
+
+.risky-toggle-box.active {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: #ef4444;
+  border-style: solid;
+  animation: pulse-red 2s infinite;
+}
+
+.risky-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-align: left;
+}
+
+.risky-info p {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.risky-btn {
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  font-weight: 800;
+  font-size: 0.8rem;
+  cursor: pointer;
+  background: #1e293b;
+  color: white;
+  border: 1px solid #334155;
+  transition: all 0.3s ease;
+}
+
+.risky-btn.active {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+.reward-value {
+  display: block;
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--sky-400);
+  text-shadow: 0 0 30px rgba(56, 189, 248, 0.5);
+}
+
+@keyframes pulse-red {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+@media (max-width: 600px) {
+  .options-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .risky-toggle-box {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .risky-info {
+    flex-direction: column;
+    text-align: center;
+  }
+}

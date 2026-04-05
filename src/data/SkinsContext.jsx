@@ -1,43 +1,105 @@
-import React, { createContext, useContext, useState } from 'react';
-
-// Importar imágenes base (las leyendas y cracks actuales)
-import alexisImg from '../images/avatares/alexis.png';
-import cristianoImg from '../images/avatares/cristiano.png';
-import messiImg from '../images/avatares/messi.png';
-import neymarImg from '../images/avatares/neymar.png';
-import ramosImg from '../images/avatares/ramos.png';
-import salasImg from '../images/avatares/salas.png';
-import vidalImg from '../images/avatares/vidal.png';
-import zamoranoImg from '../images/avatares/zamorano.png';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 const SkinsContext = createContext(null);
 
 export const SkinsProvider = ({ children }) => {
-  const [skins, setSkins] = useState([
-    { id: 's1', name: 'Neymar Jr.', rarity: 'rare', condition: 'Jugar 5 partidos', unlocked: true, url: neymarImg },
-    { id: 's2', name: 'Cristiano Ronaldo', rarity: 'rare', condition: '100% de Asistencia Semanal', unlocked: true, url: cristianoImg },
-    { id: 's3', name: 'Lionel Messi', rarity: 'epic', condition: 'Goleador del Torneo', unlocked: true, url: messiImg },
-    { id: 's4', name: 'Sergio Ramos', rarity: 'rare', condition: 'Capitán de Equipo', unlocked: true, url: ramosImg },
-    { id: 's6', name: 'Arturo Vidal (El Rey)', rarity: 'epic', condition: 'Ganar 10 partidos consecutivos', unlocked: false, url: vidalImg },
-    { id: 's7', name: 'Alexis Sánchez (Maravilla)', rarity: 'epic', condition: 'Marcar un Hattrick', unlocked: false, url: alexisImg },
-    { id: 's8', name: 'Iván Zamorano (Bam Bam)', rarity: 'legendary', condition: 'Premio al Jugador del Mes', unlocked: false, url: zamoranoImg },
-    { id: 's9', name: 'Marcelo Salas (El Matador)', rarity: 'legendary', condition: 'Campeón de Liga', unlocked: false, url: salasImg },
-  ]);
+  const { user } = useAuth();
+  const [allSkins, setAllSkins] = useState([]);
+  const [userSkins, setUserSkins] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const addSkin = (newSkin) => {
-    setSkins(prev => [...prev, { ...newSkin, id: `s_${Date.now()}`, unlocked: false }]);
+  const fetchData = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    // 1. Fetch all available skins
+    const { data: skinsData } = await supabase
+      .from('skins')
+      .select('*')
+      .order('cost', { ascending: true });
+    
+    setAllSkins(skinsData || []);
+
+    // 2. Fetch user's unlocked skins
+    const { data: ownedData } = await supabase
+      .from('user_skins')
+      .select('skin_id')
+      .eq('user_id', user.id);
+    
+    setUserSkins(ownedData?.map(o => o.skin_id) || []);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const purchaseSkin = async (skinId, cost) => {
+    if (!user) return { success: false, error: 'No authenticated user' };
+    
+    // 1. Check points
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('points')
+      .eq('id', user.id)
+      .single();
+    
+    if ((profile?.points || 0) < cost) {
+      return { success: false, error: 'Puntos insuficientes' };
+    }
+
+    // 2. Add to inventory
+    const { error: invError } = await supabase
+      .from('user_skins')
+      .insert({ user_id: user.id, skin_id: skinId });
+    
+    if (invError) return { success: false, error: invError.message };
+
+    // 3. Deduct points
+    await supabase
+      .from('profiles')
+      .update({ points: profile.points - cost })
+      .eq('id', user.id);
+    
+    // 4. Refresh local state
+    setUserSkins(prev => [...prev, skinId]);
+    return { success: true };
   };
 
-  const updateSkin = (id, updatedData) => {
-    setSkins(prev => prev.map(s => s.id === id ? { ...s, ...updatedData } : s));
+  const addSkinAdmin = async (newSkin) => {
+    const { data, error } = await supabase
+      .from('skins')
+      .insert([newSkin]);
+    
+    if (!error) fetchData();
+    return { data, error };
   };
 
-  const deleteSkin = (id) => {
-    setSkins(prev => prev.filter(s => s.id !== id));
+  const deleteSkinAdmin = async (id) => {
+    const { error } = await supabase
+      .from('skins')
+      .delete()
+      .eq('id', id);
+    
+    if (!error) fetchData();
+    return { error };
   };
 
   return (
-    <SkinsContext.Provider value={{ skins, addSkin, updateSkin, deleteSkin }}>
+    <SkinsContext.Provider value={{ 
+      skins: allSkins, 
+      userSkins, 
+      loading, 
+      purchaseSkin, 
+      addSkinAdmin, 
+      deleteSkinAdmin,
+      refreshSkins: fetchData
+    }}>
       {children}
     </SkinsContext.Provider>
   );

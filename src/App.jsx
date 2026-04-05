@@ -29,6 +29,7 @@ import Stats from './pages/dashboard/Stats';
 import SkinsManagement from './pages/dashboard/SkinsManagement';
 import CoachMessages from './pages/dashboard/CoachMessages';
 import StreamingConfig from './pages/dashboard/StreamingConfig';
+import Trivia from './pages/dashboard/Trivia';
 
 import './App.css';
 
@@ -89,6 +90,7 @@ function App() {
                 <Route path="/dashboard/reportes" element={<Reports />} />
                 <Route path="/dashboard/recompensas" element={<SkinsManagement />} />
                 <Route path="/dashboard/streaming-config" element={<StreamingConfig />} />
+                <Route path="/dashboard/trivia" element={<Trivia />} />
                 
                 {/* Placeholders Finales */}
                 <Route path="/dashboard/galeria" element={<div>Galería Multimedia - Próximamente</div>} />

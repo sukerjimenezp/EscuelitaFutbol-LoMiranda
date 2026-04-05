@@ -1,65 +1,70 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-// Importar avatares locales
-import ramosImg from '../images/avatares/ramos.png';
-import messiImg from '../images/avatares/messi.png';
-import neymarImg from '../images/avatares/neymar.png';
-import cristianoImg from '../images/avatares/cristiano.png';
-import alexisImg from '../images/avatares/alexis.png';
-import vidalImg from '../images/avatares/vidal.png';
-import zamoranoImg from '../images/avatares/zamorano.png';
-import salasImg from '../images/avatares/salas.png';
+import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
-// Usuarios de prueba en memoria para todos los roles
-const MOCK_USERS = [
-  { id: 1, email: 'admin@lomiranda.cl', password: 'admin2026', name: 'Super Admin', role: 'superadmin', avatar: ramosImg },
-  { id: 2, email: 'dt@lomiranda.cl', password: 'dt2026', name: 'Carlos Miranda', role: 'dt', category: 'sub10', avatar: messiImg },
-  { id: 3, email: 'contador@lomiranda.cl', password: 'contador2026', name: 'Lucía Rivas', role: 'contador', avatar: neymarImg },
-  { id: 4, email: 'padre@lomiranda.cl', username: 'padre', password: 'padre2026', name: 'Juan Pérez', role: 'parent', studentId: 5, avatar: cristianoImg },
-  { id: 5, email: 'jugador@lomiranda.cl', username: 'mateo', password: 'jugador2026', name: 'Mateo Miranda', role: 'player', category: 'sub10', avatar: alexisImg },
-];
-
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('loriranda_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check initial session
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        setUser({ ...session.user, ...profile });
+      }
+      setLoading(false);
+    };
+
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        setUser({ ...session.user, ...profile });
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (error) return { success: false, error: error.message };
+    return { success: true, user: data.user };
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const updateUserAvatar = async (newAvatarUrl) => {
     if (user) {
-      localStorage.setItem('loriranda_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('loriranda_user');
-    }
-  }, [user]);
-
-  const login = (identifier, password) => {
-    const found = MOCK_USERS.find(u => 
-      (u.email === identifier.toLowerCase() || u.username === identifier.toLowerCase()) && 
-      u.password === password
-    );
-    if (found) {
-      setUser(found);
-      return { success: true, user: found };
-    }
-    return { success: false, error: 'Credenciales incorrectas' };
-  };
-
-  const logout = () => {
-    setUser(null);
-  };
-
-  // Función útil para desarrollo/testing de DASHBOARD
-  const switchRole = (role) => {
-    const newUser = MOCK_USERS.find(u => u.role === role) || MOCK_USERS[0];
-    setUser(newUser);
-  };
-
-  const updateUserAvatar = (newAvatarUrl) => {
-    if (user) {
-      setUser({ ...user, avatar: newAvatarUrl });
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: newAvatarUrl })
+        .eq('id', user.id);
+      
+      if (!error) setUser({ ...user, avatar_url: newAvatarUrl });
     }
   };
 
@@ -67,8 +72,8 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{ 
       user, 
       login, 
-      logout, 
-      switchRole,
+      logout,
+      loading,
       updateUserAvatar,
       isAuthenticated: !!user,
       isAdmin: user?.role === 'superadmin',
@@ -77,7 +82,7 @@ export const AuthProvider = ({ children }) => {
       isParent: user?.role === 'parent',
       isPlayer: user?.role === 'player'
     }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

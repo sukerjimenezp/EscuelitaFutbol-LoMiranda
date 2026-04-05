@@ -11,166 +11,185 @@ import { useSkins } from '../../data/SkinsContext';
 
 const PlayerProfile = () => {
   const { user, updateUserAvatar } = useAuth();
-  const { skins } = useSkins();
+  const { skins, userSkins, purchaseSkin, loading: skinsLoading } = useSkins();
+  const [purchasingId, setPurchasingId] = useState(null);
   
-  // Cargar feedback del profe para este jugador
-  const feedback = JSON.parse(localStorage.getItem(`coach_feedback_${user?.id}`)) || {
+  // 1. Fetch Feedback from Supabase (instead of localStorage)
+  const [feedback, setFeedback] = useState({
     title: '¡BUEN TRABAJO!',
-    message: `Hola ${user?.name.split(' ')[0]}, vi tus últimos entrenamientos y miedos en la cancha, ¡has mejorado mucho!`,
-    points: ['¡Excelente esfuerzo corriendo en la cancha! 🏃', 'Trata de levantar más la cabeza al pasar el balón 👀', 'Me gusta mucho tu actitud de compañerismo 🤝'],
+    message: `Hola ${user?.full_name?.split(' ')[0] || 'Jugador'}, estamos analizando tu progreso...`,
+    points: ['Sigue entrenando duro para ganar puntos', 'Participa en las trivias semanales'],
     footer: '¡A seguir divirtiéndonos!'
-  };
-  
-  // Seleccionar la skin actual
-  const currentSkin = skins.find(s => s.url === user?.avatar) || skins[0];
+  });
 
-  // Stats simulados del jugador
-  const playerStats = {
-    matches: 12,
-    goals: 0,
-    attendance: '85%',
+  useEffect(() => {
+    const fetchFeedback = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from('feedback')
+          .select('*')
+          .eq('player_id', user.id)
+          .single();
+        if (data) setFeedback(data);
+      }
+    };
+    fetchFeedback();
+  }, [user]);
+
+  const handleEquipSkin = async (skinUrl) => {
+    await updateUserAvatar(skinUrl);
+    alert('¡Skin equipada con éxito!');
   };
 
-  const handleEquipSkin = (skin) => {
-    if (skin.unlocked) {
-      updateUserAvatar(skin.url);
+  const handleBuySkin = async (skin) => {
+    if (confirm(`¿Quieres comprar a ${skin.name} por ${skin.cost} puntos?`)) {
+      setPurchasingId(skin.id);
+      const result = await purchaseSkin(skin.id, skin.cost);
+      if (result.success) {
+        alert('¡Compra exitosa! Ahora puedes equipar esta skin.');
+      } else {
+        alert('Error: ' + result.error);
+      }
+      setPurchasingId(null);
     }
   };
 
-  // Encontrar stats tipo FIFA para la carta
-  let fifaStats = null;
-  for (const cat in playersByCategory) {
-    const found = playersByCategory[cat].find(p => p.name === user?.name || p.name.split(' ')[0] === user?.username);
-    if (found) fifaStats = { ...found };
-  }
-  
-  if (!fifaStats) {
-    fifaStats = { name: user?.name, overall: 75, position: 'MED', pace: 70, shooting: 65, passing: 72, dribbling: 70, defense: 60, physical: 68 };
-  }
-  fifaStats.image = user?.avatar; // Sincronizar la imagen de la carta con la skin activa
+  const fifaStats = {
+    name: user?.full_name,
+    overall: user?.overall || 75,
+    position: user?.position || 'MED',
+    pace: user?.pace || 70,
+    shooting: user?.shooting || 65,
+    passing: user?.passing || 72,
+    dribbling: user?.dribbling || 70,
+    defense: user?.defense || 60,
+    physical: user?.physical || 68,
+    image: user?.avatar_url
+  };
 
   return (
-    <div className="gamer-profile-container" style={{ maxWidth: '100%' }}>
+    <div className="gamer-profile-container">
       
-      {/* BANNER PRINCIPAL INTEGRADO (Carta + Stats) para máximo ahorro de espacio */}
-      <div className="gamer-profile-banner" style={{ display: 'flex', flexDirection: 'row', gap: '40px', alignItems: 'center', flexWrap: 'wrap' }}>
-        
-        {/* La Ficha integrada a la izquierda dentro del banner */}
-        <div style={{ transform: 'scale(0.85)', transformOrigin: 'left center', margin: '-40px 0' }}>
+      {/* BANNER PRINCIPAL CON PUNTOS ACUMULADOS */}
+      <div className="gamer-profile-banner">
+        <div className="banner-left">
           <PlayerCard player={fifaStats} />
         </div>
 
-        {/* Resumen e Info a la derecha en el mismo bloque */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="banner-right">
           <div className="gp-user-info">
-            <h1 style={{ fontSize: '3rem', margin: 0 }}>{user?.name}</h1>
-            <span className="gp-role-badge" style={{ marginTop: '10px' }}><Zap size={16} /> JUGADOR ACTIVO</span>
+            <h1>{user?.full_name}</h1>
+            <div className="gp-badges">
+              <span className="gp-role-badge"><Zap size={16} /> JUGADOR ACTIVO</span>
+              <div className="points-display-premium glass">
+                <Trophy size={20} className="text-yellow" />
+                <span className="points-val">{user?.points || 0}</span>
+                <span className="points-lbl">PUNTOS</span>
+              </div>
+            </div>
           </div>
 
-          <div className="gp-stats-row" style={{ marginTop: '10px' }}>
-            <div className="gp-stat-box" style={{ flex: 1, justifyContent: 'center' }}>
-              <Shield className="stat-icon text-sky" size={32} />
+          <div className="gp-stats-row">
+            <div className="gp-stat-box glass">
+              <Shield size={24} className="text-sky" />
               <div className="span-col">
-                <span className="stat-num">{playerStats.matches}</span>
+                <span className="stat-num">12</span>
                 <span className="stat-lbl">PARTIDOS</span>
               </div>
             </div>
-            <div className="gp-stat-box" style={{ flex: 1, justifyContent: 'center' }}>
-              <TargetIcon className="stat-icon text-red" size={32} />
+            <div className="gp-stat-box glass">
+              <TargetIcon size={24} className="text-red" />
               <div className="span-col">
-                <span className="stat-num">{playerStats.goals}</span>
+                <span className="stat-num">5</span>
                 <span className="stat-lbl">GOLES</span>
-              </div>
-            </div>
-            <div className="gp-stat-box" style={{ flex: 1, justifyContent: 'center' }}>
-              <CheckCircle className="stat-icon text-green" size={32} />
-              <div className="span-col">
-                <span className="stat-num">{playerStats.attendance}</span>
-                <span className="stat-lbl">ASISTENCIA</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* SECCIÓN: EL PROFE DICE (Diseño Premium del Usuario) */}
+      {/* SECCIÓN: EL PROFE DICE */}
       <div className="coach-feedback-section">
         <div className="coach-feedback-header">
           <MessageSquare size={24} className="text-secondary-400" />
-          <div className="header-titles">
-            <h2 className="title-yellow">EL PROFE</h2>
-            <h2 className="title-yellow">DICE</h2>
-          </div>
+          <h2 className="title-yellow">EL PROFE DICE</h2>
         </div>
 
         <div className="coach-feedback-card glass">
           <div className="card-top">
-            <Star size={20} color="#fbbf24" fill="#fbbf24" />
+            <Star size={20} fill="#fbbf24" color="#fbbf24" />
             <span className="feedback-badge-top">{feedback.title}</span>
           </div>
-
-          <p className="main-coach-msg">
-            {feedback.message}
-          </p>
-
+          <p className="main-coach-msg">{feedback.message}</p>
           <div className="specific-points-list">
             {feedback.points.map((point, index) => (
               <div key={index} className="point-item glass">
-                <Heart size={16} fill="#ef4444" color="#ef4444" className="heart-icon" />
+                <Heart size={16} fill="#ef4444" color="#ef4444" />
                 <span>{point}</span>
               </div>
             ))}
           </div>
-
-          <div className="card-footer-msg">
-            <Trophy size={16} className="text-sky" />
-            <span>{feedback.footer}</span>
-          </div>
         </div>
       </div>
 
-      {/* Armario de Skins (Skin Locker) Ocupando 100% del ancho abajo */}
+      {/* ARMARIO DE SKINS / TIENDA */}
       <div className="skin-locker-section">
         <div className="locker-header">
           <h2><Star size={24} color="#fbbf24" /> Armario de Skins</h2>
-          <p>Desbloquea Leyendas de La Roja y del Fútbol Mundial</p>
+          <p>Usa tus puntos para desbloquear nuevas leyendas.</p>
         </div>
 
-        <div className="skins-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-          {skins.map((skin) => {
-            const isEquipped = user?.avatar === skin.url;
-            
-            return (
-              <div 
-                key={skin.id} 
-                className={`skin-card rarity-${skin.rarity} ${skin.unlocked ? 'unlocked' : 'locked'} ${isEquipped ? 'equipped' : ''}`}
-                onClick={() => handleEquipSkin(skin)}
-              >
-                {!skin.unlocked && (
-                  <div className="skin-lock-overlay">
-                    <Lock size={32} color="#fff" />
-                    <span className="lock-text">BLOQUEADO</span>
-                  </div>
-                )}
-                
-                <div className="skin-image-container">
-                  <img src={skin.url} alt={skin.name} />
-                </div>
-                
-                <div className="skin-info">
-                  <h3>{skin.name}</h3>
-                  <div className="skin-rarity-badge">{skin.rarity.toUpperCase()}</div>
-                  <div className="skin-condition">
-                    {skin.unlocked ? <Unlock size={12} /> : <Trophy size={12} />} 
-                    {skin.condition}
-                  </div>
-                </div>
+        {skinsLoading ? (
+          <div className="loading-locker">Cargando armario...</div>
+        ) : (
+          <div className="skins-grid">
+            {skins.map((skin) => {
+              const isOwned = userSkins.includes(skin.id);
+              const isEquipped = user?.avatar_url === skin.image_url;
+              const canAfford = (user?.points || 0) >= skin.cost;
 
-                {isEquipped && <div className="equipped-stamp">EQUIPADO</div>}
-              </div>
-            );
-          })}
-        </div>
+              return (
+                <div 
+                  key={skin.id} 
+                  className={`skin-card rarity-${skin.rarity} ${isOwned ? 'owned' : 'locked'} ${isEquipped ? 'equipped' : ''}`}
+                >
+                  <div className="skin-image-container">
+                    <img src={skin.image_url} alt={skin.name} />
+                    {!isOwned && (
+                      <div className="skin-cost-overlay glass">
+                        <Trophy size={16} />
+                        <span>{skin.cost}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="skin-info">
+                    <h3>{skin.name}</h3>
+                    <div className="skin-rarity-badge">{skin.rarity.toUpperCase()}</div>
+                    
+                    {isOwned ? (
+                      <button 
+                        className={`equip-btn ${isEquipped ? 'active' : ''}`}
+                        onClick={() => handleEquipSkin(skin.image_url)}
+                        disabled={isEquipped}
+                      >
+                        {isEquipped ? 'EQUIPADO' : 'EQUIPAR'}
+                      </button>
+                    ) : (
+                      <button 
+                        className={`buy-btn ${canAfford ? 'affordable' : 'expensive'}`}
+                        onClick={() => handleBuySkin(skin)}
+                        disabled={!canAfford || purchasingId === skin.id}
+                      >
+                        {purchasingId === skin.id ? 'COMPRANDO...' : canAfford ? 'COMPRAR' : 'FALTAN PUNTOS'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,72 +5,66 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './SkinsManagement.css';
 
 const SkinsManagement = () => {
-  const { skins, addSkin, deleteSkin, updateSkin } = useSkins();
+  const { skins, addSkinAdmin, deleteSkinAdmin, loading } = useSkins();
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
   const [newSkin, setNewSkin] = useState({
     name: '',
-    condition: '',
+    cost: 100,
     rarity: 'rare',
-    url: ''
+    image_url: ''
   });
 
-  const handleEdit = (skin) => {
-    setEditingId(skin.id);
-    let displayUrl = skin.url;
-    // Si es una ruta local de src, mostramos solo el nombre del archivo para facilitar edición
-    if (displayUrl.startsWith('/src/images/avatares/')) {
-      displayUrl = displayUrl.replace('/src/images/avatares/', '');
-    }
-    
-    setNewSkin({
-      name: skin.name,
-      condition: skin.condition,
-      rarity: skin.rarity,
-      url: displayUrl
-    });
-    setShowModal(true);
-  };
-
-  const handleSave = () => {
-    if (!newSkin.name || !newSkin.condition || !newSkin.url) {
+  const handleSave = async () => {
+    if (!newSkin.name || !newSkin.image_url) {
       return alert('Por favor, completa todos los campos.');
     }
     
-    const finalUrl = newSkin.url.startsWith('http') || newSkin.url.startsWith('/') 
-      ? newSkin.url 
-      : `/src/images/avatares/${newSkin.url}`;
+    const finalUrl = newSkin.image_url.startsWith('http') || newSkin.image_url.startsWith('/') 
+      ? newSkin.image_url 
+      : `/images/avatares/${newSkin.image_url}`;
+
+    const skinToSave = { ...newSkin, image_url: finalUrl };
 
     if (editingId) {
-      updateSkin(editingId, { ...newSkin, url: finalUrl });
-      alert('Skin actualizada con éxito.');
+      // Logic for editing in DB if needed, for now we can delete and re-add or implement update
+      alert('Funcionalidad de edición en desarrollo para DB');
     } else {
-      addSkin({ ...newSkin, url: finalUrl });
-      alert('Nueva skin añadida con éxito.');
+      const { error } = await addSkinAdmin(skinToSave);
+      if (error) alert(error.message);
+      else alert('Nueva skin añadida con éxito.');
     }
 
     setShowModal(false);
     setEditingId(null);
-    setNewSkin({ name: '', condition: '', rarity: 'rare', url: '' });
+    setNewSkin({ name: '', cost: 100, rarity: 'rare', image_url: '' });
   };
 
   const openAddModal = () => {
     setEditingId(null);
-    setNewSkin({ name: '', condition: '', rarity: 'rare', url: '' });
+    setNewSkin({ name: '', cost: 100, rarity: 'rare', image_url: '' });
     setShowModal(true);
   };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('¿Eliminar esta recompensa?')) {
+      await deleteSkinAdmin(id);
+    }
+  };
+
+  if (loading) return <div className="loading-skins glass">Cargando catálogo...</div>;
 
   return (
     <div className="skins-management-page">
       <div className="page-header">
         <div className="header-info">
           <h1 className="dash-title">Gestión de <span className="text-sky">Recompensas</span></h1>
-          <p className="dash-subtitle">Crea nuevos avatares y define los logros necesarios para obtenerlos.</p>
+          <p className="dash-subtitle">Crea nuevos avatares y define su costo en puntos para los alumnos.</p>
         </div>
         <button className="btn-primary" onClick={openAddModal}>
           <Plus size={18} />
-          Nueva Skin / Logro
+          Nueva Recompensa
         </button>
       </div>
 
@@ -78,21 +72,18 @@ const SkinsManagement = () => {
         {skins.map((skin) => (
           <div key={skin.id} className={`skin-admin-card rarity-${skin.rarity} glass`}>
             <div className="skin-preview">
-              <img src={skin.url} alt={skin.name} />
+              <img src={skin.image_url} alt={skin.name} />
               <div className="rarity-tag">{skin.rarity.toUpperCase()}</div>
             </div>
             <div className="skin-details">
               <h3>{skin.name}</h3>
-              <p className="condition-text">
-                <Trophy size={14} className="text-sky" />
-                {skin.condition}
-              </p>
+              <div className="cost-badge">
+                <Trophy size={14} className="text-yellow" />
+                <span>{skin.cost} Puntos</span>
+              </div>
             </div>
             <div className="skin-actions">
-              <button className="icon-btn-edit" onClick={() => handleEdit(skin)} title="Editar">
-                <Edit2 size={18} />
-              </button>
-              <button className="delete-btn" onClick={() => deleteSkin(skin.id)} title="Eliminar">
+              <button className="delete-btn" onClick={() => handleDelete(skin.id)} title="Eliminar">
                 <Trash2 size={18} />
               </button>
             </div>
@@ -111,14 +102,14 @@ const SkinsManagement = () => {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
             >
               <div className="modal-header">
-                <h2>{editingId ? 'Editar' : 'Cargar Nueva'} <span className="text-sky">Recompensa</span></h2>
+                <h2>Cargar Nueva <span className="text-sky">Recompensa</span></h2>
                 <button className="close-btn" onClick={() => {setShowModal(false); setEditingId(null);}}><X size={24} /></button>
               </div>
 
               <div className="modal-body single-col">
                 <div className="player-form">
                   <div className="field">
-                    <label>Nombre del Personaje / Skin</label>
+                    <label>Nombre del Personaje / Sticker</label>
                     <input 
                       type="text" 
                       placeholder="Ej: Marcelo Salas (Clásico)"
@@ -138,34 +129,28 @@ const SkinsManagement = () => {
                       </select>
                     </div>
                     <div className="field">
-                      <label>Nombre de Archivo en /images/avatares</label>
+                      <label>Costo en Puntos</label>
                       <input 
-                        type="text" 
-                        placeholder="Ej: salas_98.png"
-                        value={newSkin.url}
-                        onChange={e => setNewSkin({...newSkin, url: e.target.value})}
+                        type="number" 
+                        value={newSkin.cost}
+                        onChange={e => setNewSkin({...newSkin, cost: parseInt(e.target.value) || 0})}
                       />
                     </div>
                   </div>
 
                   <div className="field">
-                    <label>Logro / Condición para Desbloqueo</label>
-                    <textarea 
-                      placeholder="Ej: Completar el 100% de asistencia este mes"
-                      value={newSkin.condition}
-                      onChange={e => setNewSkin({...newSkin, condition: e.target.value})}
-                      rows={3}
+                    <label>Nombre de Archivo o URL de Imagen</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ej: salas.png o https://..."
+                      value={newSkin.image_url}
+                      onChange={e => setNewSkin({...newSkin, image_url: e.target.value})}
                     />
-                  </div>
-
-                  <div className="info-box-alert glass">
-                    <Star size={18} className="text-sky" />
-                    <p>Asegúrate de que el archivo de imagen esté en la carpeta <strong>src/images/avatares</strong>.</p>
                   </div>
 
                   <button className="btn-primary save-action" onClick={handleSave}>
                     <Save size={18} />
-                    {editingId ? 'Guardar Cambios' : 'Publicar Skin'}
+                    Publicar Sticker
                   </button>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, 
   Search, 
@@ -12,19 +12,20 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { categories, playersByCategory as initialPlayers } from '../../data/mockData';
+import { supabase } from '../../lib/supabase';
+import { categories } from '../../data/mockData';
 import './Players.css';
 
 const Players = () => {
-  const [playersMap, setPlayersMap] = useState(initialPlayers);
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('sub10');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingPlayerId, setEditingPlayerId] = useState(null);
   
-  // Estado para el jugador (nuevo o editado)
   const [newPlayer, setNewPlayer] = useState({
-    name: '',
+    full_name: '',
     dorsal: 10,
     position: 'DC',
     pace: 50,
@@ -33,12 +34,28 @@ const Players = () => {
     dribbling: 50,
     defense: 50,
     physical: 50,
-    category: 'sub10'
+    category_id: 'sub10'
   });
 
   const [overall, setOverall] = useState(50);
 
-  // Cálculo automático del Overall
+  const fetchPlayers = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('category_id', selectedCategory)
+      .eq('role', 'player');
+    
+    if (error) console.error('Error fetching players:', error);
+    else setPlayers(data || []);
+    setLoading(false);
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    fetchPlayers();
+  }, [fetchPlayers]);
+
   useEffect(() => {
     const stats = [
       newPlayer.pace, 
@@ -55,7 +72,7 @@ const Players = () => {
   const handleInputChange = (field, value) => {
     setNewPlayer(prev => ({ 
       ...prev, 
-      [field]: field === 'name' || field === 'position' || field === 'category' ? value : (parseInt(value) || 0)
+      [field]: field === 'full_name' || field === 'position' || field === 'category_id' ? value : (parseInt(value) || 0)
     }));
   };
 
@@ -63,58 +80,78 @@ const Players = () => {
     setEditingPlayerId(player.id);
     setNewPlayer({
       ...player,
-      category: selectedCategory // Usamos la categoría actual
+      category_id: selectedCategory
     });
     setShowModal(true);
   };
 
-  const handleDeletePlayer = (playerId) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este jugador de la plantilla?')) {
-      const updatedMap = { ...playersMap };
-      updatedMap[selectedCategory] = updatedMap[selectedCategory].filter(p => p.id !== playerId);
-      setPlayersMap(updatedMap);
+  const handleDeletePlayer = async (playerId) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este jugador?')) {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', playerId);
+      
+      if (error) alert('Error al eliminar: ' + error.message);
+      else fetchPlayers();
     }
   };
 
-  const handleSave = () => {
-    if (!newPlayer.name) return alert('Debes ingresar el nombre del jugador');
+  const handleSave = async () => {
+    if (!newPlayer.full_name) return alert('Debes ingresar el nombre');
     
     const playerToSave = {
-      ...newPlayer,
+      full_name: newPlayer.full_name,
+      dorsal: newPlayer.dorsal,
+      position: newPlayer.position,
+      category_id: newPlayer.category_id,
       overall: overall,
-      image: newPlayer.image || `https://api.dicebear.com/7.x/lorelei/svg?seed=${newPlayer.name}`
+      pace: newPlayer.pace,
+      shooting: newPlayer.shooting,
+      passing: newPlayer.passing,
+      dribbling: newPlayer.dribbling,
+      defense: newPlayer.defense,
+      physical: newPlayer.physical,
+      role: 'player',
+      avatar_url: newPlayer.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${newPlayer.full_name}`,
+      email: newPlayer.email || `${newPlayer.full_name.replace(/\s/g, '').toLowerCase()}@escuela.cl`
     };
 
-    const updatedMap = { ...playersMap };
-    
     if (editingPlayerId) {
-      // Editar existente
-      updatedMap[newPlayer.category] = updatedMap[newPlayer.category].map(p => 
-        p.id === editingPlayerId ? playerToSave : p
-      );
-      alert('Ficha de jugador actualizada');
+      const { error } = await supabase
+        .from('profiles')
+        .update(playerToSave)
+        .eq('id', editingPlayerId);
+      
+      if (error) alert(error.message);
+      else {
+        alert('Ficha actualizada');
+        fetchPlayers();
+        setShowModal(false);
+      }
     } else {
-      // Crear nuevo
-      playerToSave.id = Date.now();
-      updatedMap[newPlayer.category].push(playerToSave);
-      alert('Jugador registrado con éxito');
+      const { error } = await supabase
+        .from('profiles')
+        .insert([playerToSave]);
+      
+      if (error) alert(error.message);
+      else {
+        alert('Jugador registrado');
+        fetchPlayers();
+        setShowModal(false);
+      }
     }
-    
-    setPlayersMap(updatedMap);
-    setShowModal(false);
-    resetForm();
   };
 
   const resetForm = () => {
     setEditingPlayerId(null);
     setNewPlayer({
-      name: '', dorsal: 10, position: 'DC', pace: 50, shooting: 50, passing: 50, dribbling: 50, defense: 50, physical: 50, category: selectedCategory
+      full_name: '', dorsal: 10, position: 'DC', pace: 50, shooting: 50, passing: 50, dribbling: 50, defense: 50, physical: 50, category_id: selectedCategory
     });
   };
 
-  const players = playersMap[selectedCategory] || [];
   const filteredPlayers = players.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    p.full_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
