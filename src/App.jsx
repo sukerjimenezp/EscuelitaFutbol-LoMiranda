@@ -32,6 +32,7 @@ import CoachMessages from './pages/dashboard/CoachMessages';
 import StreamingConfig from './pages/dashboard/StreamingConfig';
 import Trivia from './pages/dashboard/Trivia';
 import Gallery from './pages/dashboard/Gallery';
+import Profiles from './pages/dashboard/Profiles';
 
 import './App.css';
 
@@ -97,6 +98,7 @@ function App() {
                 
                 {/* Placeholders Finales */}
                 <Route path="/dashboard/galeria" element={<Gallery />} />
+                <Route path="/dashboard/perfiles" element={<Profiles />} />
                 <Route path="/dashboard/config" element={<div>Configuración del Sistema - Próximamente</div>} />
                 <Route path="/dashboard/pagos" element={<Finance />} />
                 <Route path="/dashboard/stats" element={<Stats />} />
