@@ -4,62 +4,33 @@ import { supabase } from '../lib/supabase';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
-
-  const buildUser = (session, profile) => ({
-    ...session.user,
-    ...(profile || {}),
-    name: profile?.full_name || session.user.email,
-  });
 
   useEffect(() => {
     let mounted = true;
 
-    const checkSession = async () => {
-      // Timeout de seguridad: si Supabase tarda más de 5s, renderiza la app sin sesión
-      const safetyTimeout = setTimeout(() => {
-        if (mounted) {
-          console.warn('[AuthContext] Supabase timeout — rendering without session');
-          setLoading(false);
-        }
-      }, 5000);
-
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session && mounted) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          if (mounted) setUser(buildUser(session, profile));
-        }
-      } catch (err) {
-        console.error('[AuthContext] checkSession error:', err);
-      } finally {
-        clearTimeout(safetyTimeout);
-        if (mounted) setLoading(false);
+    // Check session on mount
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      if (session) {
+        const { data: profile } = await supabase
+          .from('profiles').select('*').eq('id', session.user.id).single();
+        if (mounted) setUser({ ...session.user, ...(profile || {}), name: profile?.full_name || session.user.email });
       }
-    };
+      if (mounted) setLoading(false);
+    }).catch(() => {
+      if (mounted) setLoading(false); // fail safe
+    });
 
-    checkSession();
-
+    // Listen for sign-in / sign-out events
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
-      try {
-        if (session) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          if (mounted) setUser(buildUser(session, profile));
-        } else {
-          if (mounted) setUser(null);
-        }
-      } catch (err) {
-        console.error('[AuthContext] onAuthStateChange error:', err);
+      if (session) {
+        const { data: profile } = await supabase
+          .from('profiles').select('*').eq('id', session.user.id).single();
+        if (mounted) setUser({ ...session.user, ...(profile || {}), name: profile?.full_name || session.user.email });
+      } else {
         if (mounted) setUser(null);
       }
     });
@@ -71,39 +42,18 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return { success: false, error: error.message };
-      return { success: true, user: data.user };
-    } catch (err) {
-      return { success: false, error: 'Error de conexión. Verifica tu internet.' };
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { success: false, error: error.message };
+    return { success: true, user: data.user };
   };
 
-  const logout = async () => {
-    try { await supabase.auth.signOut(); } catch (err) { console.error('[AuthContext] logout error:', err); }
-  };
+  const logout = async () => { await supabase.auth.signOut(); };
 
   const updateUserAvatar = async (newAvatarUrl) => {
     if (!user) return;
-    try {
-      const { error } = await supabase.from('profiles').update({ avatar_url: newAvatarUrl }).eq('id', user.id);
-      if (!error) setUser({ ...user, avatar_url: newAvatarUrl });
-    } catch (err) { console.error('[AuthContext] updateUserAvatar error:', err); }
+    const { error } = await supabase.from('profiles').update({ avatar_url: newAvatarUrl }).eq('id', user.id);
+    if (!error) setUser({ ...user, avatar_url: newAvatarUrl });
   };
-
-  // Show spinner while checking auth — never block forever
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#060f1e' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 44, height: 44, border: '3px solid rgba(56,189,248,0.2)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }}></div>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>Cargando...</p>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
 
   return (
     <AuthContext.Provider value={{
@@ -113,13 +63,13 @@ export const AuthProvider = ({ children }) => {
       loading,
       updateUserAvatar,
       isAuthenticated: !!user,
-      isAdmin: user?.role === 'superadmin',
-      isDT: user?.role === 'dt',
-      isContador: user?.role === 'contador',
-      isParent: user?.role === 'parent',
-      isPlayer: user?.role === 'player'
+      isAdmin:     user?.role === 'superadmin',
+      isDT:        user?.role === 'dt',
+      isContador:  user?.role === 'contador',
+      isParent:    user?.role === 'parent',
+      isPlayer:    user?.role === 'player'
     }}>
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
