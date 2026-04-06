@@ -3,68 +3,87 @@ import { supabase } from '../lib/supabase';
 
 const LiveContext = createContext();
 
+const DEFAULT_CONFIG = {
+  videoId: '',
+  isLive: false,
+  channelId: 'UCPKY87Gjxxyw1LiCYcxgs3w',
+  isAutoMode: false
+};
+
 export const LiveProvider = ({ children }) => {
-  const [liveConfig, setLiveConfig] = useState({ 
-    videoId: '', 
-    isLive: false, 
-    channelId: 'UCPKY87Gjxxyw1LiCYcxgs3w', 
-    isAutoMode: false 
-  });
-  const [loading, setLoading] = useState(true);
+  const [liveConfig, setLiveConfig] = useState(DEFAULT_CONFIG);
 
   useEffect(() => {
-    // 1. Fetch initial config
+    let mounted = true;
+
     const fetchConfig = async () => {
-      const { data } = await supabase
-        .from('live_config')
-        .select('*')
-        .eq('id', 'current')
-        .single();
-      
-      if (data) setLiveConfig(data);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase
+          .from('live_config')
+          .select('*')
+          .eq('id', 'current')
+          .single();
+
+        if (error) {
+          // Table may not exist yet — silently use defaults
+          console.warn('[LiveContext] live_config table not ready:', error.message);
+          return;
+        }
+        if (data && mounted) setLiveConfig(data);
+      } catch (err) {
+        console.error('[LiveContext] fetchConfig error:', err);
+      }
     };
 
     fetchConfig();
 
-    // 2. Subscribe to real-time changes
-    const channel = supabase
-      .channel('live_config_changes')
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'live_config',
-        filter: 'id=eq.current'
-      }, (payload) => {
-        setLiveConfig(payload.new);
-      })
-      .subscribe();
+    // Real-time subscription — fail silently if unavailable
+    let channel;
+    try {
+      channel = supabase
+        .channel('live_config_changes')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'live_config',
+          filter: 'id=eq.current'
+        }, (payload) => {
+          if (mounted) setLiveConfig(payload.new);
+        })
+        .subscribe();
+    } catch (err) {
+      console.warn('[LiveContext] realtime subscription error:', err);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      mounted = false;
+      if (channel) supabase.removeChannel(channel);
     };
   }, []);
 
   const updateLiveConfig = async (newConfig) => {
-    const { error } = await supabase
-      .from('live_config')
-      .update(newConfig)
-      .eq('id', 'current');
-    
-    if (error) console.error('Error updating live config:', error);
+    try {
+      // Try update first; if row doesn't exist, insert it
+      const { error } = await supabase
+        .from('live_config')
+        .upsert({ id: 'current', ...newConfig });
+
+      if (error) console.error('[LiveContext] updateLiveConfig error:', error);
+      else setLiveConfig(prev => ({ ...prev, ...newConfig }));
+    } catch (err) {
+      console.error('[LiveContext] updateLiveConfig exception:', err);
+    }
   };
 
   return (
-    <LiveContext.Provider value={{ ...liveConfig, updateLiveConfig, loading }}>
-      {!loading && children}
+    <LiveContext.Provider value={{ ...liveConfig, updateLiveConfig }}>
+      {children}
     </LiveContext.Provider>
   );
 };
 
 export const useLive = () => {
   const context = useContext(LiveContext);
-  if (!context) {
-    throw new Error('useLive must be used within a LiveProvider');
-  }
+  if (!context) throw new Error('useLive must be used within a LiveProvider');
   return context;
 };
