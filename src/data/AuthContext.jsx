@@ -17,6 +17,14 @@ export const AuthProvider = ({ children }) => {
     let mounted = true;
 
     const checkSession = async () => {
+      // Timeout de seguridad: si Supabase tarda más de 5s, renderiza la app sin sesión
+      const safetyTimeout = setTimeout(() => {
+        if (mounted) {
+          console.warn('[AuthContext] Supabase timeout — rendering without session');
+          setLoading(false);
+        }
+      }, 5000);
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session && mounted) {
@@ -30,6 +38,7 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         console.error('[AuthContext] checkSession error:', err);
       } finally {
+        clearTimeout(safetyTimeout);
         if (mounted) setLoading(false);
       }
     };
