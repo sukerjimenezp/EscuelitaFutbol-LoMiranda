@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './data/AuthContext';
 import { LiveProvider } from './data/LiveContext';
 import { SkinsProvider } from './data/SkinsContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Layouts (always loaded — small)
 import Navbar from './components/layout/Navbar';
@@ -89,8 +90,9 @@ function App() {
       <AuthProvider>
         <SkinsProvider>
           <LiveProvider>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
                 {/* ── RUTAS PÚBLICAS ── */}
                 <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
                 <Route path="/categorias" element={<PublicLayout><Categories /></PublicLayout>} />
@@ -134,6 +136,7 @@ function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
+            </ErrorBoundary>
           </LiveProvider>
         </SkinsProvider>
       </AuthProvider>

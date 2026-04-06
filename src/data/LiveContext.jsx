@@ -25,11 +25,17 @@ export const LiveProvider = ({ children }) => {
           .single();
 
         if (error) {
-          // Table may not exist yet — silently use defaults
           console.warn('[LiveContext] live_config table not ready:', error.message);
           return;
         }
-        if (data && mounted) setLiveConfig(data);
+        if (data && mounted) {
+          setLiveConfig({
+            videoId: data.video_id,
+            isLive: data.is_live,
+            channelId: data.channel_id,
+            isAutoMode: data.is_auto_mode
+          });
+        }
       } catch (err) {
         console.error('[LiveContext] fetchConfig error:', err);
       }
@@ -37,7 +43,6 @@ export const LiveProvider = ({ children }) => {
 
     fetchConfig();
 
-    // Real-time subscription — fail silently if unavailable
     let channel;
     try {
       channel = supabase
@@ -48,7 +53,14 @@ export const LiveProvider = ({ children }) => {
           table: 'live_config',
           filter: 'id=eq.current'
         }, (payload) => {
-          if (mounted) setLiveConfig(payload.new);
+          if (mounted && payload.new) {
+            setLiveConfig({
+              videoId: payload.new.video_id,
+              isLive: payload.new.is_live,
+              channelId: payload.new.channel_id,
+              isAutoMode: payload.new.is_auto_mode
+            });
+          }
         })
         .subscribe();
     } catch (err) {
@@ -63,10 +75,17 @@ export const LiveProvider = ({ children }) => {
 
   const updateLiveConfig = async (newConfig) => {
     try {
-      // Try update first; if row doesn't exist, insert it
+      const dbConfig = {
+        id: 'current',
+        video_id: newConfig.videoId,
+        is_live: newConfig.isLive,
+        channel_id: newConfig.channelId,
+        is_auto_mode: newConfig.isAutoMode
+      };
+
       const { error } = await supabase
         .from('live_config')
-        .upsert({ id: 'current', ...newConfig });
+        .upsert(dbConfig);
 
       if (error) console.error('[LiveContext] updateLiveConfig error:', error);
       else setLiveConfig(prev => ({ ...prev, ...newConfig }));

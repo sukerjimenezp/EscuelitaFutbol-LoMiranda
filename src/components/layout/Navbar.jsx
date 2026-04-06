@@ -5,11 +5,25 @@ import { useLive } from '../../data/LiveContext';
 import logo from '../../assets/logo.jpg';
 import './Navbar.css';
 
-const Navbar = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user, isAuthenticated, logout } = useAuth();
+// Live banner se carga de forma segura
+const LiveBanner = () => {
   const { isLive } = useLive();
+  if (!isLive) return null;
+  
+  return (
+    <div className="live-alert-banner">
+      <span className="live-dot"></span>
+      <strong>¡EN VIVO AHORA!</strong>
+      <span>Escuelita Lo Miranda está transmitiendo en este momento.</span>
+      <Link to="/streaming" className="live-alert-btn">Ver Transmisión →</Link>
+    </div>
+  );
+};
+
+const Navbar = () => {
+  const location  = useLocation();
+  const navigate  = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => {
@@ -20,17 +34,7 @@ const Navbar = () => {
 
   return (
     <>
-      {/* Live Alert Banner */}
-      {isLive && (
-        <div className="live-alert-banner">
-          <span className="live-dot"></span>
-          <strong>¡EN VIVO AHORA!</strong>
-          <span>Escuelita Lo Miranda está transmitiendo en este momento.</span>
-          <Link to="/streaming" className="live-alert-btn" onClick={() => setMenuOpen(false)}>
-            Ver Transmisión →
-          </Link>
-        </div>
-      )}
+      <LiveBanner />
 
       <nav className="navbar glass">
         <Link to="/" className="logo-container" onClick={() => setMenuOpen(false)}>
@@ -41,7 +45,7 @@ const Navbar = () => {
           </span>
         </Link>
 
-        {/* Hamburger button (mobile) */}
+        {/* Hamburger */}
         <button
           className={`hamburger ${menuOpen ? 'open' : ''}`}
           onClick={() => setMenuOpen(!menuOpen)}
@@ -50,14 +54,12 @@ const Navbar = () => {
           <span></span><span></span><span></span>
         </button>
 
-        {/* Nav links */}
+        {/* Links */}
         <ul className={`nav-links ${menuOpen ? 'nav-open' : ''}`}>
           <li><Link to="/" className={location.pathname === '/' ? 'active' : ''} onClick={() => setMenuOpen(false)}>Inicio</Link></li>
           <li><Link to="/categorias" className={location.pathname.includes('/categorias') ? 'active' : ''} onClick={() => setMenuOpen(false)}>Categorías</Link></li>
           <li><Link to="/galeria" className={location.pathname === '/galeria' ? 'active' : ''} onClick={() => setMenuOpen(false)}>Galería</Link></li>
-          <li><Link to="/streaming" className={location.pathname === '/streaming' ? 'active' : ''} onClick={() => setMenuOpen(false)}>
-            {isLive && <span className="nav-live-dot"></span>}Streaming
-          </Link></li>
+          <li><Link to="/streaming" className={location.pathname === '/streaming' ? 'active' : ''} onClick={() => setMenuOpen(false)}>Streaming</Link></li>
 
           {isAuthenticated ? (
             <>
