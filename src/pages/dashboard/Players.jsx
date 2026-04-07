@@ -205,8 +205,8 @@ const Players = () => {
             {filteredPlayers.map(player => (
               <div key={player.id} className="player-row">
                 <div className="col-player">
-                  <img src={player.image} alt={player.name} className="row-avatar" />
-                  <span className="player-name">{player.name}</span>
+                  <img src={player.avatar_url} alt={player.full_name} className="row-avatar" />
+                  <span className="player-name">{player.full_name}</span>
                 </div>
                 <div className="col-pos">
                   <span className="pos-badge">{player.position}</span>
@@ -270,8 +270,8 @@ const Players = () => {
                       <span>{overall}</span>
                       <small>{newPlayer.position}</small>
                     </div>
-                    <img src={newPlayer.image || `https://api.dicebear.com/7.x/lorelei/svg?seed=${newPlayer.name || 'default'}`} alt="Preview" />
-                    <div className="preview-name">{newPlayer.name || 'NOMBRE JUGADOR'} {newPlayer.dorsal ? `(#${newPlayer.dorsal})` : ''}</div>
+                    <img src={newPlayer.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${newPlayer.full_name || 'default'}`} alt="Preview" />
+                    <div className="preview-name">{newPlayer.full_name || 'NOMBRE JUGADOR'} {newPlayer.dorsal ? `(#${newPlayer.dorsal})` : ''}</div>
                   </div>
                 </div>
 
