@@ -10,28 +10,62 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     let mounted = true;
 
-    // Check session on mount
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
-      if (session) {
-        const { data: profile } = await supabase
-          .from('profiles').select('*').eq('id', session.user.id).single();
-        if (mounted) setUser({ ...session.user, ...(profile || {}), name: profile?.full_name || session.user.email });
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+
+        if (session) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (!profileError && profile && mounted) {
+            setUser({ 
+              ...session.user, 
+              ...profile, 
+              name: profile.full_name || session.user.email 
+            });
+          } else if (mounted) {
+            // User exists but no profile yet (or error fetching profile)
+            setUser({ ...session.user, name: session.user.email });
+          }
+        }
+      } catch (err) {
+        console.error('[AuthContext] Initialization error:', err);
+      } finally {
+        if (mounted) setLoading(false);
       }
-      if (mounted) setLoading(false);
-    }).catch(() => {
-      if (mounted) setLoading(false); // fail safe
-    });
+    };
+
+    initializeAuth();
 
     // Listen for sign-in / sign-out events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
+      
       if (session) {
         const { data: profile } = await supabase
-          .from('profiles').select('*').eq('id', session.user.id).single();
-        if (mounted) setUser({ ...session.user, ...(profile || {}), name: profile?.full_name || session.user.email });
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (mounted) {
+          setUser({ 
+            ...session.user, 
+            ...(profile || {}), 
+            name: profile?.full_name || session.user.email 
+          });
+          setLoading(false);
+        }
       } else {
-        if (mounted) setUser(null);
+        if (mounted) {
+          setUser(null);
+          setLoading(false);
+        }
       }
     });
 
@@ -69,13 +103,15 @@ export const AuthProvider = ({ children }) => {
       isParent:    user?.role === 'parent',
       isPlayer:    user?.role === 'player'
     }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
+
+export default AuthContext;

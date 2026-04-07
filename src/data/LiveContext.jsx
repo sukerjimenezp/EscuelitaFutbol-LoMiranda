@@ -103,6 +103,8 @@ export const LiveProvider = ({ children }) => {
 
 export const useLive = () => {
   const context = useContext(LiveContext);
-  if (!context) throw new Error('useLive must be used within a LiveProvider');
+  if (context === undefined) throw new Error('useLive must be used within a LiveProvider');
   return context;
 };
+
+export default LiveContext;

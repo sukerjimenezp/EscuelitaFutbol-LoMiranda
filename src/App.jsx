@@ -66,7 +66,10 @@ const PublicLayout = ({ children }) => (
 
 // ── Route Guard ──────────────────────────────────────────────────────────────
 const ProtectedRoute = ({ allowedRoles }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
+
+  // Si está cargando la sesión, mostramos el cargador de página
+  if (loading) return <PageLoader />;
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
@@ -83,14 +86,13 @@ const ProtectedRoute = ({ allowedRoles }) => {
   return <DashboardLayout />;
 };
 
-// ── App ──────────────────────────────────────────────────────────────────────
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <SkinsProvider>
-          <LiveProvider>
-            <ErrorBoundary>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <SkinsProvider>
+            <LiveProvider>
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                 {/* ── RUTAS PÚBLICAS ── */}
@@ -132,15 +134,14 @@ function App() {
                   <Route path="/dashboard/config" element={<div style={{padding:'2rem',color:'#fff'}}>Configuración del Sistema — Próximamente</div>} />
                 </Route>
 
-                {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
-            </ErrorBoundary>
           </LiveProvider>
         </SkinsProvider>
       </AuthProvider>
     </BrowserRouter>
+    </ErrorBoundary>
   );
 }
 

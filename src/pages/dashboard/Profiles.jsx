@@ -20,30 +20,42 @@ const Profiles = () => {
   const [showForm, setShowForm]     = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [feedback, setFeedback]     = useState({ type: '', msg: '' });
-
-  const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'player' });
+  const [editingProfile, setEditingProfile] = useState(null);
+  const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'player', avatar_url: '' });
+  const [skins, setSkins] = useState([]);
 
   useEffect(() => { fetchProfiles(); }, []);
 
   const fetchProfiles = async () => {
     setLoading(true);
+    setFeedback({ type: '', msg: '' }); // Clear old feedback
     try {
+      // Robust select to ensure Chrome doesn't hang on obscure columns
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role, created_at')
+        .select('id, full_name, email, role, avatar_url, created_at')
         .order('created_at', { ascending: false });
 
       if (error) {
-        // Intentar sin created_at por si la columna no existe
-        const { data: data2 } = await supabase
+        console.warn('Primary fetch failed, attempting fallback...', error.message);
+        // Fallback without created_at if it's missing from schema
+        const { data: fallbackData, error: fbError } = await supabase
           .from('profiles')
-          .select('id, full_name, email, role');
-        setProfiles(data2 || []);
+          .select('id, full_name, email, role, avatar_url');
+        
+        if (fbError) throw fbError;
+        setProfiles(fallbackData || []);
       } else {
         setProfiles(data || []);
       }
+
+      // Fetch skins for selection
+      const { data: skinsData } = await supabase.from('skins').select('*');
+      setSkins(skinsData || []);
+
     } catch (err) {
       console.error('fetchProfiles error:', err);
+      notify('error', 'Error al cargar perfiles: ' + err.message);
       setProfiles([]);
     } finally {
       setLoading(false);
@@ -55,58 +67,93 @@ const Profiles = () => {
     setTimeout(() => setFeedback({ type: '', msg: '' }), 5000);
   };
 
-  const handleCreate = async (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.full_name || !form.email || !form.password) {
+    if (!form.full_name || !form.email || (!editingProfile && !form.password)) {
       notify('error', 'Completa todos los campos obligatorios.');
-      return;
-    }
-    if (form.password.length < 6) {
-      notify('error', 'La contraseña debe tener al menos 6 caracteres.');
       return;
     }
     setCreating(true);
 
     try {
-      // Crear usuario con signUp (funciona con anon key)
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        options: { data: { full_name: form.full_name } }
-      });
+      if (editingProfile) {
+        // --- MODO EDICIÓN ---
+        const { error } = await supabase
+          .from('profiles')
+          .update({ 
+            full_name: form.full_name, 
+            role: form.role,
+            avatar_url: form.avatar_url 
+          })
+          .eq('id', editingProfile.id);
 
-      if (authError) {
-        notify('error', 'Error al crear usuario: ' + authError.message);
-        setCreating(false);
-        return;
-      }
-
-      const userId = authData?.user?.id;
-
-      // Insertar/actualizar perfil con rol asignado
-      if (userId) {
-        await supabase.from('profiles').upsert({
-          id: userId,
-          email: form.email,
-          full_name: form.full_name,
-          role: form.role,
-        }, { onConflict: 'id' });
+        if (error) throw error;
+        notify('success', `✅ Perfil de ${form.full_name} actualizado.`);
       } else {
-        // Si el usuario ya existía (email duplicado), actualizar solo el rol
-        await supabase.from('profiles')
-          .update({ role: form.role, full_name: form.full_name })
-          .eq('email', form.email);
+        // --- MODO CREACIÓN ---
+        if (form.password.length < 6) {
+          notify('error', 'La contraseña debe tener al menos 6 caracteres.');
+          setCreating(false);
+          return;
+        }
+
+        // 1. Intentar signUp
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: form.email,
+          password: form.password,
+          options: { data: { full_name: form.full_name } }
+        });
+
+        if (authError) {
+          // Si el usuario ya existe, intentamos solo insertar en profiles
+          if (authError.message.includes('already registered')) {
+             const { error: upsertErr } = await supabase.from('profiles').upsert({
+               email: form.email,
+               full_name: form.full_name,
+               role: form.role
+             });
+             if (upsertErr) throw upsertErr;
+             notify('success', `✅ Usuario ya existía. Perfil actualizado.`);
+          } else {
+            throw authError;
+          }
+        } else {
+          const userId = authData?.user?.id;
+          if (userId) {
+            await supabase.from('profiles').upsert({
+              id: userId,
+              email: form.email,
+              full_name: form.full_name,
+              role: form.role,
+            });
+            notify('success', `✅ Perfil creado. Se envió correo de confirmación.`);
+          }
+        }
       }
 
-      notify('success', `✅ Perfil de ${form.full_name} creado. Deberá confirmar su correo para ingresar.`);
       setForm({ full_name: '', email: '', password: '', role: 'player' });
       setShowForm(false);
+      setEditingProfile(null);
       fetchProfiles();
     } catch (err) {
-      notify('error', 'Error inesperado: ' + err.message);
+      console.error('Error in handleSave:', err);
+      notify('error', 'Error: ' + err.message);
     } finally {
       setCreating(false);
     }
+  };
+
+  const startEdit = (profile) => {
+    setEditingProfile(profile);
+    setForm({
+      full_name: profile.full_name || '',
+      email: profile.email || '',
+      password: '', // No editamos password aquí por seguridad
+      role: profile.role || 'player',
+      avatar_url: profile.avatar_url || ''
+    });
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (profile) => {
@@ -162,45 +209,88 @@ const Profiles = () => {
         ))}
       </div>
 
-      {/* Create Form */}
+      {/* Create/Edit Form */}
       {showForm && (
-        <div className="profile-form-wrap glass">
-          <h3><UserPlus size={18} /> Crear Nuevo Usuario</h3>
-          <form className="profile-form" onSubmit={handleCreate}>
+        <div className={`profile-form-wrap glass ${editingProfile ? 'editing' : ''}`}>
+          <h3>
+            {editingProfile ? <Shield size={18} /> : <UserPlus size={18} />} 
+            {editingProfile ? `Editando: ${editingProfile.full_name}` : 'Crear Nuevo Usuario'}
+          </h3>
+          <form className="profile-form" onSubmit={handleSave}>
             <div className="form-row">
               <div className="form-group">
                 <label>Nombre Completo *</label>
                 <input type="text" placeholder="Ej: Juan Pérez" value={form.full_name}
-                  onChange={e => setForm({ ...form, full_name: e.target.value })} />
+                  onChange={e => setForm({ ...form, full_name: e.target.value })} required />
               </div>
               <div className="form-group">
                 <label>Correo Electrónico *</label>
                 <input type="email" placeholder="correo@ejemplo.com" value={form.email}
-                  onChange={e => setForm({ ...form, email: e.target.value })} />
+                  disabled={!!editingProfile}
+                  onChange={e => setForm({ ...form, email: e.target.value })} required />
               </div>
             </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Contraseña *</label>
-                <div className="input-pw-wrap">
-                  <input type={showPassword ? 'text' : 'password'} placeholder="Mínimo 6 caracteres"
-                    value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
-                  <button type="button" className="eye-btn" onClick={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+            {!editingProfile && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Contraseña *</label>
+                  <div className="input-pw-wrap">
+                    <input type={showPassword ? 'text' : 'password'} placeholder="Mínimo 6 caracteres"
+                      value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+                    <button type="button" className="eye-btn" onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Rol del Sistema *</label>
+                  <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+                    {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
                 </div>
               </div>
-              <div className="form-group">
-                <label>Rol del Sistema *</label>
-                <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                  {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-            </div>
+            )}
+            {editingProfile && (
+              <>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Rol del Sistema *</label>
+                    <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
+                      {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>URL de Foto de Perfil (Opcional)</label>
+                    <input type="text" placeholder="https://..." value={form.avatar_url}
+                      onChange={e => setForm({ ...form, avatar_url: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="form-group avatar-selection-area">
+                  <label>O seleccionar entre Skins disponibles:</label>
+                  <div className="avatar-grid-mini">
+                    {skins.map(s => (
+                      <div 
+                        key={s.id} 
+                        className={`avatar-option ${form.avatar_url === s.image_url ? 'active' : ''}`}
+                        onClick={() => setForm({ ...form, avatar_url: s.image_url })}
+                      >
+                        <img src={s.image_url} alt={s.name} title={s.name} />
+                      </div>
+                    ))}
+                    {form.avatar_url && (
+                      <button type="button" className="btn-clear-avatar" onClick={() => setForm({ ...form, avatar_url: '' })}>
+                        Quitar Foto
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
             <div className="form-actions">
-              <button type="button" className="btn-cancel-form" onClick={() => setShowForm(false)}>Cancelar</button>
+              <button type="button" className="btn-cancel-form" onClick={() => { setShowForm(false); setEditingProfile(null); }}>Cancelar</button>
               <button type="submit" className="btn-create-profile" disabled={creating}>
-                {creating ? '⏳ Creando...' : '✅ Crear Perfil'}
+                {creating ? '⏳ Guardando...' : (editingProfile ? '💾 Actualizar Cambios' : '✅ Crear Perfil')}
               </button>
             </div>
           </form>
@@ -241,8 +331,12 @@ const Profiles = () => {
                   <tr key={p.id} className={p.id === user?.id ? 'own-row' : ''}>
                     <td>
                       <div className="profile-name-cell">
-                        <div className="profile-avatar-mini" style={{ background: role.color + '22', color: role.color }}>
-                          {(p.full_name || p.email || '?').charAt(0).toUpperCase()}
+                        <div className="profile-avatar-mini" style={{ background: p.avatar_url ? 'none' : role.color + '22', color: role.color }}>
+                          {p.avatar_url ? (
+                            <img src={p.avatar_url} alt="Avatar" className="mini-img" />
+                          ) : (
+                            (p.full_name || p.email || '?').charAt(0).toUpperCase()
+                          )}
                         </div>
                         <span>{p.full_name || '—'}</span>
                         {p.id === user?.id && <span className="you-badge">Tú</span>}
@@ -260,12 +354,17 @@ const Profiles = () => {
                         {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                       </select>
                     </td>
-                    <td>
-                      {p.id !== user?.id && (
-                        <button className="btn-delete-profile" onClick={() => handleDelete(p)} title="Eliminar">
-                          <Trash2 size={15} />
+                    <td className="actions-cell">
+                      <div className="profiles-actions-wrap">
+                        <button className="btn-edit-profile" onClick={() => startEdit(p)} title="Editar">
+                          <Shield size={14} />
                         </button>
-                      )}
+                        {p.id !== user?.id && (
+                          <button className="btn-delete-profile" onClick={() => handleDelete(p)} title="Eliminar">
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

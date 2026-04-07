@@ -107,6 +107,8 @@ export const SkinsProvider = ({ children }) => {
 
 export const useSkins = () => {
   const context = useContext(SkinsContext);
-  if (!context) throw new Error('useSkins must be used within a SkinsProvider');
+  if (context === undefined) throw new Error('useSkins must be used within a SkinsProvider');
   return context;
 };
+
+export default SkinsContext;
