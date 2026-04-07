@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './SkinsManagement.css';
 
 const SkinsManagement = () => {
-  const { skins, addSkinAdmin, deleteSkinAdmin, loading } = useSkins();
+  const { skins, addSkinAdmin, updateSkinAdmin, deleteSkinAdmin, loading } = useSkins();
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   
@@ -28,8 +28,9 @@ const SkinsManagement = () => {
     const skinToSave = { ...newSkin, image_url: finalUrl };
 
     if (editingId) {
-      // Logic for editing in DB if needed, for now we can delete and re-add or implement update
-      alert('Funcionalidad de edición en desarrollo para DB');
+      const { error } = await updateSkinAdmin(editingId, skinToSave);
+      if (error) alert(error.message);
+      else alert('Recompensa actualizada.');
     } else {
       const { error } = await addSkinAdmin(skinToSave);
       if (error) alert(error.message);
@@ -39,6 +40,17 @@ const SkinsManagement = () => {
     setShowModal(false);
     setEditingId(null);
     setNewSkin({ name: '', cost: 100, rarity: 'rare', image_url: '' });
+  };
+
+  const handleEdit = (skin) => {
+    setEditingId(skin.id);
+    setNewSkin({
+      name: skin.name,
+      cost: skin.cost,
+      rarity: skin.rarity,
+      image_url: skin.image_url
+    });
+    setShowModal(true);
   };
 
   const openAddModal = () => {
@@ -83,6 +95,9 @@ const SkinsManagement = () => {
               </div>
             </div>
             <div className="skin-actions">
+              <button className="edit-btn" onClick={() => handleEdit(skin)} title="Editar">
+                <Edit2 size={18} />
+              </button>
               <button className="delete-btn" onClick={() => handleDelete(skin.id)} title="Eliminar">
                 <Trash2 size={18} />
               </button>

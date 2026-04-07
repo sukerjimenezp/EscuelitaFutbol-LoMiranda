@@ -80,10 +80,10 @@ export const SkinsProvider = ({ children }) => {
     return { data, error };
   };
 
-  const deleteSkinAdmin = async (id) => {
+  const updateSkinAdmin = async (id, updatedSkin) => {
     const { error } = await supabase
       .from('skins')
-      .delete()
+      .update(updatedSkin)
       .eq('id', id);
     
     if (!error) fetchData();
@@ -97,6 +97,7 @@ export const SkinsProvider = ({ children }) => {
       loading, 
       purchaseSkin, 
       addSkinAdmin, 
+      updateSkinAdmin,
       deleteSkinAdmin,
       refreshSkins: fetchData
     }}>
