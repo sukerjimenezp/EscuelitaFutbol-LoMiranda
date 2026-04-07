@@ -90,6 +90,16 @@ export const SkinsProvider = ({ children }) => {
     return { error };
   };
 
+  const deleteSkinAdmin = async (id) => {
+    const { error } = await supabase
+      .from('skins')
+      .delete()
+      .eq('id', id);
+    
+    if (!error) fetchData();
+    return { error };
+  };
+
   return (
     <SkinsContext.Provider value={{ 
       skins: allSkins, 
