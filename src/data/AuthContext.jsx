@@ -47,19 +47,27 @@ export const AuthProvider = ({ children }) => {
       if (!mounted) return;
       
       if (session) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (mounted) {
-          setUser({ 
-            ...session.user, 
-            ...(profile || {}), 
-            name: profile?.full_name || session.user.email 
-          });
-          setLoading(false);
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (mounted) {
+            setUser({ 
+              ...session.user, 
+              ...(profile || {}), 
+              name: profile?.full_name || session.user.email 
+            });
+          }
+        } catch (err) {
+          console.error('[AuthContext] Auth change profile fetch error:', err);
+          if (mounted) {
+            setUser({ ...session.user, name: session.user.email });
+          }
+        } finally {
+          if (mounted) setLoading(false);
         }
       } else {
         if (mounted) {

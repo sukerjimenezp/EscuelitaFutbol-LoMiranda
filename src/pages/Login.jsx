@@ -16,12 +16,31 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const result = await login(username, password);
-    setLoading(false);
-    if (result.success) {
-      navigate('/dashboard');
-    } else {
-      setError(result.error || 'Credenciales incorrectas. Inténtalo de nuevo.');
+
+    // Timeout de 8 segundos para evitar bloqueos infinitos
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Tiempo de espera agotado. Revisa tu internet o intenta de nuevo.')), 8000)
+    );
+
+    try {
+      console.log('[Login] Iniciando autenticación...');
+      const result = await Promise.race([
+        login(username, password),
+        timeout
+      ]);
+
+      if (result.success) {
+        console.log('[Login] Éxito, navegando al dashboard.');
+        navigate('/dashboard');
+      } else {
+        console.warn('[Login] Fallo:', result.error);
+        setError(result.error || 'Credenciales incorrectas.');
+      }
+    } catch (err) {
+      console.error('[Login] Error crítico:', err);
+      setError(err.message || 'Error de conexión con el servidor.');
+    } finally {
+      if (typeof setLoading === 'function') setLoading(false);
     }
   };
 
