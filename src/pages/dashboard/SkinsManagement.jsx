@@ -110,7 +110,7 @@ const SkinsManagement = () => {
         {showModal && (
           <div className="modal-overlay" onClick={() => {setShowModal(false); setEditingId(null);}}>
             <motion.div 
-              className="player-modal glass skin-form-modal" 
+              className="event-modal glass skin-form-modal" 
               onClick={e => e.stopPropagation()}
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -165,7 +165,7 @@ const SkinsManagement = () => {
 
                   <button className="btn-primary save-action" onClick={handleSave}>
                     <Save size={18} />
-                    Publicar Sticker
+                    {editingId ? 'Guardar Cambios' : 'Publicar Sticker'}
                   </button>
                 </div>
               </div>
