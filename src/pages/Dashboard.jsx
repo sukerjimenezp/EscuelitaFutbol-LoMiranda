@@ -72,7 +72,7 @@ const Dashboard = () => {
             <p>Bienvenido al Centro de Alto Rendimiento Escuelita Lo Miranda FC.</p>
           </div>
         </div>
-        <div className="role-tag">{user?.role.toUpperCase()}</div>
+        <div className="role-tag">{user?.role?.toUpperCase() || 'USUARIO'}</div>
       </div>
 
       <div className="stats-row">
