@@ -17,9 +17,9 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    // Timeout de 8 segundos para evitar bloqueos infinitos
+    // Timeout de 15 segundos para evitar bloqueos por latencia de la base de datos
     const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Tiempo de espera agotado. Revisa tu internet o intenta de nuevo.')), 8000)
+      setTimeout(() => reject(new Error('Tiempo de espera agotado. Revisa tu internet o intenta de nuevo.')), 15000)
     );
 
     try {

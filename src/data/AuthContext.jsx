@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
             });
           } else if (mounted) {
             // User exists but no profile yet (or error fetching profile)
-            setUser({ ...session.user, name: session.user.email });
+            setUser({ ...session.user, name: session.user.email, role: 'player' });
           }
         }
       } catch (err) {
@@ -93,7 +93,7 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
           console.error('[AuthContext] Auth change profile fetch error:', err);
           if (mounted) {
-            setUser({ ...session.user, name: session.user.email });
+            setUser({ ...session.user, name: session.user.email, role: 'player' });
           }
         } finally {
           if (mounted) setLoading(false);
