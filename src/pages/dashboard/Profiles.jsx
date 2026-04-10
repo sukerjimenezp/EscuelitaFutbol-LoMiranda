@@ -21,7 +21,14 @@ const Profiles = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [feedback, setFeedback]     = useState({ type: '', msg: '' });
   const [editingProfile, setEditingProfile] = useState(null);
-  const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'player', avatar_url: '' });
+  const [form, setForm] = useState({ 
+    full_name: '', 
+    email: '', 
+    password: '', 
+    role: 'player', 
+    avatar_url: '',
+    parent_id: '' 
+  });
   const [skins, setSkins] = useState([]);
 
   useEffect(() => { fetchProfiles(); }, []);
@@ -33,7 +40,7 @@ const Profiles = () => {
       // Robust select to ensure Chrome doesn't hang on obscure columns
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role, avatar_url, created_at')
+        .select('id, full_name, email, role, avatar_url, created_at, parent_id')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -83,7 +90,8 @@ const Profiles = () => {
           .update({ 
             full_name: form.full_name, 
             role: form.role,
-            avatar_url: form.avatar_url 
+            avatar_url: form.avatar_url,
+            parent_id: form.role === 'player' ? (form.parent_id || null) : null
           })
           .eq('id', editingProfile.id);
 
@@ -120,12 +128,14 @@ const Profiles = () => {
         } else {
           const userId = authData?.user?.id;
           if (userId) {
-            await supabase.from('profiles').upsert({
+            const { error: profileErr } = await supabase.from('profiles').upsert({
               id: userId,
               email: form.email,
               full_name: form.full_name,
               role: form.role,
+              parent_id: form.role === 'player' ? (form.parent_id || null) : null
             });
+            if (profileErr) throw profileErr;
             notify('success', `✅ Perfil creado. Se envió correo de confirmación.`);
           }
         }
@@ -150,7 +160,8 @@ const Profiles = () => {
       email: profile.email || '',
       password: '', // No editamos password aquí por seguridad
       role: profile.role || 'player',
-      avatar_url: profile.avatar_url || ''
+      avatar_url: profile.avatar_url || '',
+      parent_id: profile.parent_id || ''
     });
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -250,6 +261,21 @@ const Profiles = () => {
                 </div>
               </div>
             )}
+
+            {form.role === 'player' && (
+              <div className="form-group" style={{ marginTop: '5px' }}>
+                <label>Apoderado Asignado (Opcional)</label>
+                <select 
+                  value={form.parent_id || ''} 
+                  onChange={e => setForm({ ...form, parent_id: e.target.value })}
+                >
+                  <option value="">— Sin apoderado asignado —</option>
+                  {profiles.filter(p => p.role === 'parent').map(p => (
+                    <option key={p.id} value={p.id}>{p.full_name} ({p.email})</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {editingProfile && (
               <>
                 <div className="form-row">
@@ -340,6 +366,11 @@ const Profiles = () => {
                         </div>
                         <span>{p.full_name || '—'}</span>
                         {p.id === user?.id && <span className="you-badge">Tú</span>}
+                        {p.role === 'player' && p.parent_id && (
+                          <div className="parent-tag-mini">
+                            👪 Hijo de: {profiles.find(pr => pr.id === p.parent_id)?.full_name || 'Desconocido'}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="email-cell">{p.email}</td>

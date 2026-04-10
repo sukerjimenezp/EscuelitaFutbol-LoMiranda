@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../data/AuthContext';
+import { supabase } from '../lib/supabase';
 import { playersByCategory, events, finances } from '../data/mockData';
 import { 
   Users, 
@@ -9,10 +10,10 @@ import {
   Activity,
   ArrowRight,
   UserPlus,
-  Settings,
   ShieldCheck,
   Tv,
-  Play
+  Play,
+  AlertCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,6 +21,26 @@ import logo from '../assets/logo.jpg';
 import './Dashboard.css';
 
 import PlayerProfile from './dashboard/PlayerProfile';
+
+// --- HELPERS ---
+const cleanRUT = (rut) => rut.replace(/[.-]/g, '');
+
+const validateRUT = (rut) => {
+  const clean = cleanRUT(rut);
+  if (clean.length < 8) return false;
+  const body = clean.slice(0, -1);
+  const dv = clean.slice(-1).toUpperCase();
+  
+  let sum = 0;
+  let mul = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += parseInt(body[i]) * mul;
+    mul = mul === 7 ? 2 : mul + 1;
+  }
+  const res = 11 - (sum % 11);
+  const expectedDv = res === 11 ? '0' : res === 10 ? 'K' : res.toString();
+  return dv === expectedDv;
+};
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -145,34 +166,107 @@ const ActivityItem = ({ text, time }) => (
 
 const ParentDashboardView = ({ user }) => {
   const [showAddPupil, setShowAddPupil] = useState(false);
-  const [pupils, setPupils] = useState([
-    { id: 1, name: 'Mateo López', category: 'Sub-12', attendance: '95%', goals: 4, nextMatch: 'Sábado 10:00 AM' }
-  ]);
+  const [pupils, setPupils] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [newPupil, setNewPupil] = useState({ name: '', rut: '', category: 'sub10' });
 
-  const [newPupil, setNewPupil] = useState({ name: '', rut: '', category: 'Sub-10' });
+  useEffect(() => {
+    fetchMyPupils();
+  }, [user]);
 
-  const handleRegisterPupil = () => {
-    if(!newPupil.name) return;
-    setPupils([...pupils, { 
-      id: Date.now(), 
-      name: newPupil.name, 
-      category: newPupil.category, 
-      attendance: '100%', 
-      goals: 0, 
-      nextMatch: 'Por definir' 
-    }]);
-    setShowAddPupil(false);
-    setNewPupil({ name: '', rut: '', category: 'Sub-10' });
+  const fetchMyPupils = async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      // 1. Obtener perfiles vinculados
+      const { data: kids, error: kError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('parent_id', user.id);
+      
+      if (kError) throw kError;
+
+      if (!kids || kids.length === 0) {
+        setPupils([]);
+        return;
+      }
+
+      // 2. Obtener asistencia en una sola consulta (Optimización Performance)
+      const kidIds = kids.map(k => k.id);
+      const { data: attendanceData } = await supabase
+        .from('attendance')
+        .select('player_id, status')
+        .in('player_id', kidIds);
+
+      // 3. Procesar datos (Mapeo eficiente)
+      const kidsWithStats = kids.map(k => {
+        const myAttendance = (attendanceData || []).filter(a => a.player_id === k.id);
+        const total = myAttendance.length;
+        const present = myAttendance.filter(a => a.status === 'present' || a.status === 'match').length;
+        const attendancePercent = total > 0 ? Math.round((present / total) * 100) : 100;
+
+        return {
+          ...k,
+          attendance: `${attendancePercent}%`,
+          goals: 0, 
+          nextMatch: 'Próximo entrenamiento'
+        };
+      });
+
+      setPupils(kidsWithStats);
+    } catch (err) {
+      console.error('Error fetching pupils:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegisterPupil = async () => {
+    if(!newPupil.name || !newPupil.rut) {
+      setError('Por favor completa todos los campos.');
+      return;
+    }
+
+    if(!validateRUT(newPupil.rut)) {
+      setError('El RUT ingresado no es válido (ej: 12345678-9).');
+      return;
+    }
+
+    setError('');
+    try {
+      // Intentamos crear el perfil directamente vinculado
+      // NOTA: Para un sistema real, esto funcionaría mejor con una búsqueda previa 
+      // o un proceso de invitación, pero cumpliendo el flujo del usuario:
+      const { data, error: insertError } = await supabase
+        .from('profiles')
+        .insert([{
+          full_name: newPupil.name.toUpperCase(),
+          email: `${cleanRUT(newPupil.rut)}@escuelitalomiranda.cl`, // Placeholder email
+          category_id: newPupil.category,
+          parent_id: user.id,
+          role: 'player'
+        }])
+        .select();
+
+      if (insertError) throw insertError;
+
+      setShowAddPupil(false);
+      setNewPupil({ name: '', rut: '', category: 'sub10' });
+      fetchMyPupils(); // Recargar lista
+    } catch (err) {
+      setError('Error al registrar: ' + (err.message || 'Error desconocido'));
+    }
   };
 
   return (
     <div className="dashboard-home parent-view">
-      <div className="welcome-banner glass" style={{ marginBottom: '30px' }}>
+      <div className="welcome-banner glass">
         <div className="welcome-text-group">
           <img src={logo} alt="Logo" className="welcome-logo" />
           <div className="welcome-text">
             <h1>¡Hola, <span className="text-sky">{user?.name}</span>!</h1>
-            <p>Panel de Supervición de Apoderados.</p>
+            <p>Panel de Supervisión de Apoderados.</p>
           </div>
         </div>
         <button className="btn-primary" onClick={() => setShowAddPupil(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -181,54 +275,62 @@ const ParentDashboardView = ({ user }) => {
         </button>
       </div>
 
-      <div className="streaming-banner glass" style={{ marginBottom: '30px', padding: '25px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', borderRadius: '20px', background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(15, 23, 42, 0.8) 100%)', border: '1px solid rgba(239, 68, 68, 0.3)', gap: '20px' }}>
+      <div className="streaming-banner">
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ background: 'rgba(239, 68, 68, 0.2)', padding: '15px', borderRadius: '50%', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="streaming-icon-wrapper">
             <Tv size={30} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '1.4rem', color: 'white', fontWeight: 800 }}>Lo Miranda <span style={{ color: '#ef4444' }}>EN VIVO</span> • <span style={{ fontSize: '1rem', color: '#f87171', animation: 'pulse 2s infinite' }}>● REC</span></h3>
+            <h3 className="streaming-title">Lo Miranda <span style={{ color: '#ef4444' }}>EN VIVO</span> • <span className="streaming-live-tag">● REC</span></h3>
             <p style={{ margin: '5px 0 0', fontSize: '0.95rem', color: 'var(--text-secondary)' }}>Acompaña a tus pupilos desde la distancia o revive sus mejores jugadas.</p>
           </div>
         </div>
-        <Link to="/streaming" className="btn-primary" style={{ background: '#ef4444', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', fontSize: '1.05rem', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)' }}>
+        <Link to="/streaming" className="btn-primary" style={{ background: '#ef4444', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)' }}>
           <Play size={20} fill="currentColor" />
-          Ingresar a la Transmisión
+          Ingresar
         </Link>
       </div>
 
-      <div className="widget-header" style={{ marginBottom: '20px' }}>
+      <div className="widget-header">
         <h2>Mis Pupilos a Cargo</h2>
       </div>
 
-      <div className="pupils-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-        {pupils.map(p => (
-          <div key={p.id} className="pupil-card glass" style={{ padding: '24px', borderRadius: '20px', position: 'relative' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+      <div className="pupils-grid">
+        {loading ? (
+          <p>Cargando información de tus pupilos...</p>
+        ) : pupils.length === 0 ? (
+          <div className="glass" style={{ padding: '40px', textAlign: 'center', gridColumn: '1/-1' }}>
+            <Users size={40} className="text-muted" style={{ marginBottom: '15px' }} />
+            <h3>No tienes pupilos registrados</h3>
+            <p>Haz clic en "Registrar Pupilo" para comenzar.</p>
+          </div>
+        ) : pupils.map(p => (
+          <div key={p.id} className="pupil-card glass">
+            <div className="pupil-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <div style={{ width: '50px', height: '50px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--sky-400), var(--sky-600))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 'bold', color: 'white' }}>
-                  {p.name.charAt(0)}
+                <div className="pupil-avatar-wrapper">
+                  {p.avatar_url ? <img src={p.avatar_url} alt="Avatar" /> : (p.full_name || '').charAt(0)}
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'white', fontWeight: 800 }}>{p.name}</h3>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--sky-400)', fontWeight: 700, textTransform: 'uppercase' }}>{p.category}</span>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>{p.full_name}</h3>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--sky-400)', fontWeight: 700, textTransform: 'uppercase' }}>{p.category_id}</span>
                 </div>
               </div>
               <ShieldCheck className="text-muted" size={20} />
             </div>
 
-            <div className="pupil-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '12px' }}>
-                <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Asistencia</span>
-                <strong style={{ color: 'white', fontSize: '1.1rem' }}>{p.attendance}</strong>
+            <div className="pupil-stats-grid">
+              <div className="pupil-stat-box">
+                <span className="pupil-stat-label">Asistencia</span>
+                <strong className="pupil-stat-value">{p.attendance}</strong>
               </div>
-              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '12px' }}>
-                <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Goles</span>
-                <strong style={{ color: 'white', fontSize: '1.1rem' }}>{p.goals}</strong>
+              <div className="pupil-stat-box">
+                <span className="pupil-stat-label">Puntos</span>
+                <strong className="pupil-stat-value">{p.points || 0}</strong>
               </div>
             </div>
 
-            <div style={{ background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.2)', padding: '12px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="pupil-next-match">
               <CalendarIcon size={16} className="text-sky" />
               <div style={{ fontSize: '0.8rem' }}>
                 <span style={{ color: 'var(--text-muted)', display: 'block' }}>Próximo Partido</span>
@@ -236,63 +338,73 @@ const ParentDashboardView = ({ user }) => {
               </div>
             </div>
             
-            <button className="btn-secondary-outline" style={{ width: '100%', marginTop: '15px' }}>Ver Perfil Completo</button>
+            <button className="btn-secondary-outline" style={{ width: '100%', marginTop: '15px' }}>Ver Perfil</button>
           </div>
         ))}
       </div>
 
       <AnimatePresence>
         {showAddPupil && (
-          <div className="modal-overlay" onClick={() => setShowAddPupil(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div className="modal-overlay" onClick={() => setShowAddPupil(false)}>
             <motion.div 
-              className="event-modal glass" 
+              className="modal-content" 
               onClick={e => e.stopPropagation()}
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              style={{ width: '400px', padding: '30px', background: 'var(--bg-surface)', borderRadius: '24px' }}
             >
               <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '8px' }}>Registrar <span className="text-sky">Pupilo</span></h2>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '20px' }}>Ingresa los datos del alumno para vincularlo a tu cuenta de apoderado.</p>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '25px' }}>Vincula a un nuevo alumno a tu supervisión.</p>
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '20px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Nombre Completo del Niño(a)</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ej: Mateo López"
-                    value={newPupil.name}
-                    onChange={(e) => setNewPupil({...newPupil, name: e.target.value})}
-                    style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px', fontSize: '1rem' }}
-                  />
+              {error && (
+                <div className="error-message glass" style={{ color: '#ef4444', padding: '10px', borderRadius: '10px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <AlertCircle size={16} /> {error}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>RUT / Identificación</label>
-                  <input 
-                    type="text" 
-                    placeholder="Sin puntos ni guiones"
-                    value={newPupil.rut}
-                    onChange={(e) => setNewPupil({...newPupil, rut: e.target.value})}
-                    style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px', fontSize: '1rem' }}
-                  />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Categoría (Serie)</label>
-                  <select 
-                    value={newPupil.category}
-                    onChange={(e) => setNewPupil({...newPupil, category: e.target.value})}
-                    style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px', fontSize: '1rem' }}
-                  >
-                    <option style={{background: '#0f172a', color: 'white'}} value="Sub-10">Sub-10</option>
-                    <option style={{background: '#0f172a', color: 'white'}} value="Sub-12">Sub-12</option>
-                    <option style={{background: '#0f172a', color: 'white'}} value="Sub-14">Sub-14</option>
-                    <option style={{background: '#0f172a', color: 'white'}} value="Sub-16">Sub-16</option>
-                  </select>
-                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Nombre Completo</label>
+                <input 
+                  type="text" 
+                  className="form-input"
+                  placeholder="Ej: MATEO MIRANDA"
+                  value={newPupil.name}
+                  onChange={(e) => setNewPupil({...newPupil, name: e.target.value})}
+                />
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
+
+              <div className="form-group">
+                <label className="form-label">RUT / Identificación</label>
+                <input 
+                  type="text" 
+                  className="form-input"
+                  placeholder="12345678-9"
+                  value={newPupil.rut}
+                  onChange={(e) => setNewPupil({...newPupil, rut: e.target.value})}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Categoría</label>
+                <select 
+                  className="form-input"
+                  value={newPupil.category}
+                  onChange={(e) => setNewPupil({...newPupil, category: e.target.value})}
+                  style={{ appearance: 'none' }}
+                >
+                  <option value="sub6">Sub-06</option>
+                  <option value="sub8">Sub-08</option>
+                  <option value="sub10">Sub-10</option>
+                  <option value="sub12">Sub-12</option>
+                  <option value="sub14">Sub-14</option>
+                  <option value="sub16">Sub-16</option>
+                  <option value="adultos">Adultos</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button className="btn-secondary-outline" onClick={() => setShowAddPupil(false)} style={{ flex: 1 }}>Cancelar</button>
-                <button className="btn-primary" style={{ flex: 1 }} onClick={handleRegisterPupil}>Vincular Pupilo</button>
+                <button className="btn-primary" style={{ flex: 1 }} onClick={handleRegisterPupil}>Vincular</button>
               </div>
             </motion.div>
           </div>
@@ -303,3 +415,4 @@ const ParentDashboardView = ({ user }) => {
 }
 
 export default Dashboard;
+

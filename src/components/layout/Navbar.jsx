@@ -59,7 +59,12 @@ const Navbar = () => {
           <li><Link to="/" className={location.pathname === '/' ? 'active' : ''} onClick={() => setMenuOpen(false)}>Inicio</Link></li>
           <li><Link to="/categorias" className={location.pathname.includes('/categorias') ? 'active' : ''} onClick={() => setMenuOpen(false)}>Categorías</Link></li>
           <li><Link to="/galeria" className={location.pathname === '/galeria' ? 'active' : ''} onClick={() => setMenuOpen(false)}>Galería</Link></li>
-          <li><Link to="/streaming" className={location.pathname === '/streaming' ? 'active' : ''} onClick={() => setMenuOpen(false)}>Streaming</Link></li>
+          <li>
+            <Link to="/streaming" className={location.pathname === '/streaming' ? 'active' : ''} onClick={() => setMenuOpen(false)}>
+              {useLive().isLive && <span className="nav-live-dot"></span>}
+              Streaming
+            </Link>
+          </li>
 
           {isAuthenticated ? (
             <>

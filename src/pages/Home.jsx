@@ -1,10 +1,22 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useLive } from '../data/LiveContext';
 import './Home.css';
 
 const Home = () => {
+  const { isLive } = useLive();
+
   return (
     <>
+      {/* Live Alert Bar */}
+      {isLive && (
+        <div className="home-live-notice">
+          <span className="live-badge-mini">LIVE</span>
+          <span>¡Estamos transmitiendo un partido en vivo en este momento!</span>
+          <Link to="/streaming" className="home-live-link">Unirse ahora</Link>
+        </div>
+      )}
+
       {/* Hero */}
       <header className="hero-section">
         <div className="hero-content">
@@ -17,10 +29,13 @@ const Home = () => {
           </p>
           <div className="hero-actions">
             <Link to="/categorias" className="btn-primary">⚽ Ver Categorías</Link>
-            <Link to="/streaming" className="btn-secondary">📺 Streaming</Link>
+            <Link to="/streaming" className={`btn-secondary ${isLive ? 'pulse-live' : ''}`}>
+              {isLive ? '🔴 VER EN VIVO' : '📺 Streaming'}
+            </Link>
           </div>
         </div>
       </header>
+
 
       {/* Kit Promo Banner */}
       <section className="kit-promo glass">

@@ -690,9 +690,18 @@
   box-shadow: 0 8px 25px rgba(37, 211, 102, 0.3) !important;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1300px) {
   .calendar-main-grid { grid-template-columns: 1fr; }
-  .event-form .form-row, .details-meta-grid { grid-template-columns: 1fr; }
-  .days-selector { justify-content: center; }
-  .day-toggle { width: 44px; height: 44px; font-size: 0.7rem; }
+  .upcoming-events { order: 2; padding: 20px; }
+  .calendar-container { padding: 20px; }
+}
+
+@media (max-width: 768px) {
+  .calendar-grid { gap: 2px; }
+  .calendar-day { min-height: 70px; padding: 5px; }
+  .weekday-label { font-size: 0.65rem; }
+  .day-number { font-size: 0.75rem; }
+  .month-name { font-size: 1.1rem; }
+  .event-pill { font-size: 0.6rem; padding: 1px 4px; }
+  .header-actions { flex-direction: column; align-items: stretch; width: 100%; }
 }

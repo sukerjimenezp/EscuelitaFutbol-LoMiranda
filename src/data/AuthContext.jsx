@@ -42,11 +42,40 @@ export const AuthProvider = ({ children }) => {
 
     initializeAuth();
 
+    // Sincronización en tiempo real del perfil del usuario
+    let profileSubscription = null;
+
+    const setupProfileSubscription = (userId) => {
+      if (profileSubscription) profileSubscription.unsubscribe();
+      
+      profileSubscription = supabase
+        .channel(`public:profiles:id=eq.${userId}`)
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'profiles', 
+          filter: `id=eq.${userId}` 
+        }, payload => {
+          if (mounted) {
+            setUser(prev => ({
+              ...prev,
+              ...payload.new,
+              name: payload.new.full_name || prev.email
+            }));
+          }
+        })
+        .subscribe();
+    };
+
     // Listen for sign-in / sign-out events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
       
       if (session) {
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          setupProfileSubscription(session.user.id);
+        }
+
         try {
           const { data: profile } = await supabase
             .from('profiles')
@@ -70,6 +99,7 @@ export const AuthProvider = ({ children }) => {
           if (mounted) setLoading(false);
         }
       } else {
+        if (profileSubscription) profileSubscription.unsubscribe();
         if (mounted) {
           setUser(null);
           setLoading(false);
@@ -79,8 +109,10 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      authSubscription.unsubscribe();
+      if (profileSubscription) profileSubscription.unsubscribe();
     };
+
   }, []);
 
   const login = async (email, password) => {

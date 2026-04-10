@@ -17,7 +17,8 @@ import {
   FileText,
   Target,
   MessageSquare,
-  Radio
+  Radio,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../data/AuthContext';

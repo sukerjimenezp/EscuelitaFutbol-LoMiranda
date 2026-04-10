@@ -51,8 +51,8 @@ export const playersByCategory = {
     { id: 9,  name: 'MARTÍN SALAZAR',   overall: 83, dorsal: 11, position: 'EI',  pace: 88, shooting: 72, passing: 70, dribbling: 85, defense: 40, physical: 60, image: getAvatar('Martin') },
     { id: 10, name: 'BENJAMÍN LÓPEZ',   overall: 81, dorsal: 7,  position: 'ED',  pace: 85, shooting: 70, passing: 68, dribbling: 82, defense: 38, physical: 58, image: getAvatar('Benja') },
     { id: 11, name: 'MATEO MIRANDA',    overall: 88, dorsal: 9,  position: 'DC',  pace: 82, shooting: 88, passing: 75, dribbling: 80, defense: 35, physical: 72, image: getAvatar('Mateo') },
-    { id: 16, name: 'MATEO MIRANDA',    overall: 75, dorsal: 19, position: 'MC',  pace: 70, shooting: 65, passing: 80, dribbling: 72, defense: 60, physical: 65, image: getAvatar('Mateo2') },
   ],
+
   sub6: [
     { id: 12, name: 'SANTIAGO SILVA',   overall: 65, dorsal: 9, position: 'DC', pace: 70, shooting: 60, passing: 55, dribbling: 75, defense: 30, physical: 45, image: getAvatar('SantiS') },
   ],
