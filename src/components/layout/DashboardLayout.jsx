@@ -17,7 +17,15 @@ const DashboardLayout = () => {
   const { user } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+
+  const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
+
+  // Cerrar el menú móvil cuando cambia la ruta
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   // Obtener el nombre de la página basado en la ruta
   const getPageTitle = () => {
@@ -45,12 +53,28 @@ const DashboardLayout = () => {
   }, [showNotifications]);
 
   return (
-    <div className={`dashboard-layout ${isDarkMode ? 'dark' : 'light'}`}>
-      <Sidebar />
+    <div className={`dashboard-layout ${isDarkMode ? 'dark' : 'light'} ${mobileMenuOpen ? 'mobile-menu-active' : ''}`}>
+      <Sidebar isMobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      
+      {/* Overlay para cerrar en móvil */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div 
+            className="mobile-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+      </AnimatePresence>
       
       <div className="main-wrapper">
         <header className="dashboard-header glass">
           <div className="header-left">
+            <button className="mobile-toggle-btn" onClick={toggleMobileMenu}>
+              <Menu size={24} />
+            </button>
             <div className="breadcrumb">
               <span className="text-muted">Panel</span>
               <ChevronRight size={14} className="text-muted" />

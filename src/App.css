@@ -534,15 +534,30 @@
 }
 
 /* ========= RESPONSIVE ========= */
+@media (max-width: 1440px) {
+  .hero-title { font-size: 4.5rem; }
+}
+
+@media (max-width: 1024px) {
+  .hero-title { font-size: 3.8rem; }
+  .navbar { padding: 0.8rem 3%; margin: 0 4%; top: 10px; }
+  .kit-promo { grid-template-columns: 1fr; min-height: auto; }
+  .kit-promo-content { padding: 40px; }
+  .kit-promo-image { height: 350px; }
+}
+
 @media (max-width: 768px) {
-  .hero-title { font-size: 3.2rem; }
+  .navbar { margin: 0; border-radius: 0; top: 0; padding: 0.8rem 1.5rem; }
+  .logo-text { font-size: 1.2rem; }
+  .hero-section { padding: 100px 5% 60px; }
+  .hero-title { font-size: 2.8rem; }
+  .hero-subtitle { font-size: 1rem; }
+  .hero-actions { flex-direction: column; width: 100%; max-width: 320px; margin: 0 auto; }
   .nav-links { display: none; }
   .section-title { font-size: 2.2rem; }
-  .kit-promo { grid-template-columns: 1fr; }
-  .kit-promo-image { min-height: 300px; }
   .kit-title { font-size: 2.2rem; }
   .sponsors-section { margin: 0 3% 40px; padding: 40px 20px; }
   .sponsors-grid { gap: 30px; }
-  .sponsor-card { min-width: 160px; padding: 20px 30px; }
+  .sponsor-card { min-width: 140px; padding: 15px 20px; }
   .sponsors-header h2 { font-size: 1.8rem; }
 }

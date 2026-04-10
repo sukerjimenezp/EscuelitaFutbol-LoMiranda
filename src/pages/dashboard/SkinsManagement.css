@@ -120,7 +120,8 @@
 
 /* Modal tweaks */
 .skin-form-modal {
-  width: 650px !important;
+  width: 90%;
+  max-width: 650px;
 }
 
 .info-box-alert {

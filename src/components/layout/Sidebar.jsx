@@ -24,7 +24,7 @@ import { useAuth } from '../../data/AuthContext';
 import logo from '../../assets/logo.jpg';
 import './Sidebar.css';
 
-const Sidebar = () => {
+const Sidebar = ({ isMobileOpen, onClose }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -83,8 +83,11 @@ const Sidebar = () => {
 
   return (
     <motion.aside 
-      className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}
-      animate={{ width: isCollapsed ? 80 : 260 }}
+      className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}
+      animate={{ 
+        width: isCollapsed ? 80 : 260,
+        x: isMobileOpen ? 0 : (window.innerWidth < 768 ? -280 : 0)
+      }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
       <div className="sidebar-header">
@@ -102,10 +105,14 @@ const Sidebar = () => {
           )}
         </AnimatePresence>
         <button 
-          className="collapse-btn"
+          className="collapse-btn desktop-only"
           onClick={() => setIsCollapsed(!isCollapsed)}
         >
           {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        </button>
+
+        <button className="mobile-only close-sidebar-btn" onClick={onClose}>
+          <X size={24} />
         </button>
       </div>
 
@@ -125,6 +132,7 @@ const Sidebar = () => {
             key={item.path} 
             to={item.path} 
             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            onClick={() => { if(window.innerWidth < 768) onClose(); }}
           >
             <item.icon size={20} className="nav-icon" />
             {!isCollapsed && <span className="nav-label">{item.label}</span>}
