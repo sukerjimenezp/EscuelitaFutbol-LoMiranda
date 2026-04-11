@@ -153,3 +153,16 @@
     padding-top: 100px;
   }
 }
+
+.auto-mode-hint {
+  padding: 14px 20px;
+  background: rgba(56, 189, 248, 0.08);
+  border-top: 1px solid rgba(56, 189, 248, 0.15);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}

@@ -134,7 +134,7 @@ const DashboardLayout = () => {
               </div>
 
               <div className="header-user">
-                <img src={user?.avatar} alt={user?.name} />
+                <img src={user?.avatar_url || user?.avatar} alt={user?.name} />
               </div>
             </div>
           </div>

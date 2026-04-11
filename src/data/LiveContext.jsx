@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 const LiveContext = createContext();
@@ -10,9 +10,13 @@ const DEFAULT_CONFIG = {
   isAutoMode: false
 };
 
+
 export const LiveProvider = ({ children }) => {
   const [liveConfig, setLiveConfig] = useState(DEFAULT_CONFIG);
+  const [autoDetectedLive, setAutoDetectedLive] = useState(false);
+  const [autoVideoId, setAutoVideoId] = useState('');
 
+  // Fetch live_config from Supabase
   useEffect(() => {
     let mounted = true;
 
@@ -73,6 +77,67 @@ export const LiveProvider = ({ children }) => {
     };
   }, []);
 
+  const checkYouTubeLive = useCallback(async () => {
+    if (!liveConfig.isAutoMode || !liveConfig.channelId) return;
+
+    try {
+      // Usar proxy público (AllOrigins) para bypassear CORS y obtener el HTML de la página en vivo del canal
+      const ytUrl = `https://www.youtube.com/channel/${liveConfig.channelId}/live`;
+      const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(ytUrl)}&disableCache=${Date.now()}`;
+      
+      const res = await fetch(url);
+      
+      if (!res.ok) {
+        console.warn('[LiveContext] Error fetching YouTube via proxy:', res.status);
+        return;
+      }
+
+      const html = await res.text();
+      
+      const isLiveBroadcast = html.includes('"isLiveBroadcast":true') || 
+                              html.includes('"style":"LIVE"') ||
+                              html.includes('"isLiveContent":true');
+      
+      if (isLiveBroadcast) {
+        // Extraer el videoId de la transmisión
+        let liveVideoId = '';
+        const videoIdMatch = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
+        if (videoIdMatch) liveVideoId = videoIdMatch[1];
+
+        if (liveVideoId) {
+          setAutoDetectedLive(true);
+          setAutoVideoId(liveVideoId);
+          
+          if (!liveConfig.isLive || liveConfig.videoId !== liveVideoId) {
+            await supabase.from('live_config').update({
+              is_live: true,
+              video_id: liveVideoId
+            }).eq('id', 'current');
+          }
+        }
+      } else {
+        setAutoDetectedLive(false);
+        setAutoVideoId('');
+
+        if (liveConfig.isLive && liveConfig.isAutoMode) {
+          await supabase.from('live_config').update({
+            is_live: false
+          }).eq('id', 'current');
+        }
+      }
+    } catch (err) {
+      console.warn('[LiveContext] Auto-detect error:', err);
+    }
+  }, [liveConfig.isAutoMode, liveConfig.channelId, liveConfig.isLive, liveConfig.videoId]);
+
+  useEffect(() => {
+    if (!liveConfig.isAutoMode) return;
+
+    checkYouTubeLive();
+    const interval = setInterval(checkYouTubeLive, 60000);
+    return () => clearInterval(interval);
+  }, [liveConfig.isAutoMode, checkYouTubeLive]);
+
   const updateLiveConfig = async (newConfig) => {
     try {
       const dbConfig = {
@@ -94,8 +159,17 @@ export const LiveProvider = ({ children }) => {
     }
   };
 
+  const effectiveIsLive = liveConfig.isLive || autoDetectedLive;
+  const effectiveVideoId = autoDetectedLive && autoVideoId ? autoVideoId : liveConfig.videoId;
+
   return (
-    <LiveContext.Provider value={{ ...liveConfig, updateLiveConfig }}>
+    <LiveContext.Provider value={{ 
+      ...liveConfig, 
+      isLive: effectiveIsLive,
+      videoId: effectiveVideoId,
+      autoDetectedLive,
+      updateLiveConfig 
+    }}>
       {children}
     </LiveContext.Provider>
   );

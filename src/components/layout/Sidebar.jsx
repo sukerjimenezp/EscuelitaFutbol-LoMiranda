@@ -118,7 +118,7 @@ const Sidebar = ({ isMobileOpen, onClose }) => {
       </div>
 
       <div className="sidebar-user glass">
-        <img src={user?.avatar} alt={user?.name} className="user-avatar" />
+        <img src={user?.avatar_url || user?.avatar} alt={user?.name} className="user-avatar" />
         {!isCollapsed && (
           <div className="user-meta">
             <span className="user-name">{user?.name}</span>

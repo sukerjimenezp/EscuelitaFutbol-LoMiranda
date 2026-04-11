@@ -6,9 +6,10 @@ const Streaming = () => {
   const { videoId, isLive, isAutoMode, channelId } = useLive();
 
   const getEmbedUrl = () => {
-    if (isAutoMode) return `https://www.youtube.com/embed/live_stream?channel=${channelId}`;
     return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`;
   };
+
+  const shouldShowPlayer = isLive && videoId;
 
   return (
     <div className="streaming-page">
@@ -16,7 +17,7 @@ const Streaming = () => {
         <header className="stream-header">
           <div className="live-indicator">
             <span className={`dot ${isLive ? 'pulse' : ''}`}></span>
-            {isLive ? 'EN VIVO' : 'DISCONNECTED'}
+            {isLive ? 'EN VIVO' : (isAutoMode ? 'AUTO' : 'DESCONECTADO')}
           </div>
           <h1 className="stream-title">
             Transmisión <span className="text-sky">Oficial</span>
@@ -25,7 +26,7 @@ const Streaming = () => {
         </header>
 
         <div className="player-wrapper glass">
-          {isLive && (videoId || isAutoMode) ? (
+          {shouldShowPlayer ? (
             <div className="video-responsive">
               <iframe
                 src={getEmbedUrl()}

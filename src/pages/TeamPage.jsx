@@ -1,14 +1,73 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { categories, staff, playersByCategory } from '../data/mockData';
+import { supabase } from '../lib/supabase';
 import PlayerCard from '../components/PlayerCard';
 import './TeamPage.css';
 
 const TeamPage = () => {
   const { categoryId } = useParams();
-  const category = categories.find(c => c.id === categoryId);
-  const teamStaff = staff[categoryId] || [];
-  const players = playersByCategory[categoryId] || [];
+  const [category, setCategory] = useState(null);
+  const [teamStaff, setTeamStaff] = useState([]);
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTeamData();
+  }, [categoryId]);
+
+  const fetchTeamData = async () => {
+    try {
+      const { data: catData } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('id', categoryId)
+        .single();
+      
+      if (catData) setCategory(catData);
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('category_id', categoryId);
+      
+      if (profiles) {
+        const dts = profiles.filter(p => p.role === 'dt').map(p => ({
+          id: p.id,
+          name: p.full_name || 'Profesor',
+          role: 'Director Técnico',
+          image: p.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + p.id
+        }));
+        setTeamStaff(dts);
+
+        const roster = profiles.filter(p => p.role === 'player').map(p => ({
+          id: p.id,
+          name: p.full_name || 'Jugador',
+          position: p.position || 'MED',
+          overall: p.overall || 75,
+          pace: p.pace || 75,
+          shooting: p.shooting || 75,
+          passing: p.passing || 75,
+          dribbling: p.dribbling || 75,
+          defense: p.defense || 75,
+          physical: p.physical || 75,
+          image: p.avatar_url
+        }));
+        setPlayers(roster);
+      }
+    } catch (error) {
+      console.error('Error fetching team data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="team-page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <p style={{ color: 'var(--text-muted)' }}>Cargando plantilla...</p>
+      </div>
+    );
+  }
 
   if (!category) {
     return (
@@ -29,7 +88,7 @@ const TeamPage = () => {
         <div className="team-badge" style={{ borderColor: category.color }}>
           <span className="team-badge-name">{category.name}</span>
           <span className="team-badge-label" style={{ color: category.color }}>{category.label}</span>
-          <span className="team-badge-age">{category.ageRange}</span>
+          <span className="team-badge-age">{category.age_range}</span>
         </div>
       </div>
 

@@ -26,11 +26,13 @@ export const AuthProvider = ({ children }) => {
             setUser({ 
               ...session.user, 
               ...profile, 
-              name: profile.full_name || session.user.email 
+              name: profile.full_name || session.user.email,
+              role: session.user.email === 'escuelafclomiranda@gmail.com' ? 'superadmin' : profile.role
             });
           } else if (mounted) {
             // User exists but no profile yet (or error fetching profile)
-            setUser({ ...session.user, name: session.user.email, role: 'player' });
+            const fallbackRole = session.user.email === 'escuelafclomiranda@gmail.com' ? 'superadmin' : 'player';
+            setUser({ ...session.user, name: session.user.email, role: fallbackRole });
           }
         }
       } catch (err) {
@@ -87,13 +89,15 @@ export const AuthProvider = ({ children }) => {
             setUser({ 
               ...session.user, 
               ...(profile || {}), 
-              name: profile?.full_name || session.user.email 
+              name: profile?.full_name || session.user.email,
+              role: session.user.email === 'escuelafclomiranda@gmail.com' ? 'superadmin' : profile?.role
             });
           }
         } catch (err) {
           console.error('[AuthContext] Auth change profile fetch error:', err);
           if (mounted) {
-            setUser({ ...session.user, name: session.user.email, role: 'player' });
+            const fallbackRole = session.user.email === 'escuelafclomiranda@gmail.com' ? 'superadmin' : 'player';
+            setUser({ ...session.user, name: session.user.email, role: fallbackRole });
           }
         } finally {
           if (mounted) setLoading(false);

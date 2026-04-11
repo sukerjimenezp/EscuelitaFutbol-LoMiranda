@@ -1,30 +1,88 @@
-import React, { useState } from 'react';
-import { categories as initialCategories, playersByCategory, staff } from '../../data/mockData';
-import { Users, Briefcase, ChevronRight, Plus, X, Save, Palette } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../data/AuthContext';
+import { Users, Briefcase, Plus, X, Save, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './CategoriesDash.css';
 
 const CategoriesDash = () => {
-  const [categoriesList, setCategoriesList] = useState(initialCategories);
+  const { user, isAdmin, isDT } = useAuth();
+  const canEdit = isAdmin || isDT;
+
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
   const [showModal, setShowModal] = useState(false);
-  const [newCat, setNewCat] = useState({
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentCat, setCurrentCat] = useState({
+    id: '',
     name: '',
     label: 'Infantil',
-    ageRange: '9-10 años',
+    age_range: '9-10 años',
     color: '#38bdf8'
   });
 
-  const handleSave = () => {
-    if (!newCat.name) return alert('Debes ingresar un nombre para la categoría');
-    
-    const categoryToSave = {
-      ...newCat,
-      id: `new_${Date.now()}`
-    };
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-    setCategoriesList([...categoriesList, categoryToSave]);
-    setShowModal(false);
-    setNewCat({ name: '', label: 'Infantil', ageRange: '9-10 años', color: '#38bdf8' });
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [{ data: cats }, { data: profs }] = await Promise.all([
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('profiles').select('id, role, category_id')
+      ]);
+      
+      if (cats) setCategoriesList(cats);
+      if (profs) setProfiles(profs);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openNewModal = () => {
+    setIsEditing(false);
+    setCurrentCat({
+      id: `new_${Date.now()}`,
+      name: '',
+      label: '',
+      age_range: '',
+      color: '#38bdf8'
+    });
+    setShowModal(true);
+  };
+
+  const openEditModal = (cat) => {
+    setIsEditing(true);
+    setCurrentCat({ ...cat });
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!currentCat.name) return alert('Debes ingresar un nombre para la categoría');
+    
+    // Si es nueva, podemos generar un ID simple basado en el nombre, si no, conservar el que pusimos temporal
+    const idToSave = isEditing ? currentCat.id : currentCat.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const { error } = await supabase.from('categories').upsert({
+      id: idToSave || currentCat.id,
+      name: currentCat.name,
+      label: currentCat.label,
+      age_range: currentCat.age_range,
+      color: currentCat.color
+    });
+
+    if (error) {
+      alert('Error al guardar la categoría: ' + error.message);
+      // It might fail if RLS policy for 'categories' isn't allowing DT.
+    } else {
+      setShowModal(false);
+      fetchData();
+    }
   };
 
   return (
@@ -34,48 +92,59 @@ const CategoriesDash = () => {
           <h1 className="dash-title">Gestión de <span className="text-sky">Categorías</span></h1>
           <p className="dash-subtitle">Configura los equipos y asigna el cuerpo técnico por edades.</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={18} />
-          Nueva Categoría
-        </button>
+        {canEdit && (
+          <button className="btn-primary" onClick={openNewModal}>
+            <Plus size={18} />
+            Nueva Categoría
+          </button>
+        )}
       </div>
 
-      <div className="cat-grid">
-        {categoriesList.map(cat => {
-          const players = playersByCategory[cat.id] || [];
-          const catStaff = staff[cat.id] || [];
-          
-          return (
-            <div key={cat.id} className="cat-dash-card glass">
-              <div className="cat-card-header" style={{ borderLeftColor: cat.color }}>
-                <div className="cat-info">
-                  <h3>{cat.name}</h3>
-                  <span className="cat-label" style={{ color: cat.color }}>{cat.label}</span>
+      {loading ? (
+        <div className="profiles-loading">
+          <div className="spinner"></div>
+          <p>Cargando categorías...</p>
+        </div>
+      ) : (
+        <div className="cat-grid">
+          {categoriesList.map(cat => {
+            const catPlayers = profiles.filter(p => p.category_id === cat.id && p.role === 'player');
+            const catStaff = profiles.filter(p => p.category_id === cat.id && (p.role === 'dt' || p.role === 'superadmin'));
+            
+            return (
+              <div key={cat.id} className="cat-dash-card glass">
+                <div className="cat-card-header" style={{ borderLeftColor: cat.color }}>
+                  <div className="cat-info">
+                    <h3>{cat.name}</h3>
+                    <span className="cat-label" style={{ color: cat.color }}>{cat.label}</span>
+                  </div>
+                  <div className="cat-age-badge">{cat.age_range}</div>
                 </div>
-                <div className="cat-age-badge">{cat.ageRange}</div>
-              </div>
 
-              <div className="cat-card-body">
-                <div className="cat-stat">
-                  <Users size={16} className="text-muted" />
-                  <span>{players.length} Jugadores Inscritos</span>
+                <div className="cat-card-body">
+                  <div className="cat-stat">
+                    <Users size={16} className="text-muted" />
+                    <span>{catPlayers.length} Jugadores Inscritos</span>
+                  </div>
+                  <div className="cat-stat">
+                    <Briefcase size={16} className="text-muted" />
+                    <span>{catStaff.length > 0 ? `${catStaff.length} DT/Asistentes` : 'Sin Staff asignado'}</span>
+                  </div>
                 </div>
-                <div className="cat-stat">
-                  <Briefcase size={16} className="text-muted" />
-                  <span>{catStaff.length > 0 ? `${catStaff.length} DT/Asistentes` : 'Sin Staff asignado'}</span>
+
+                <div className="cat-card-footer">
+                  <button className="btn-outline">Gestionar Plantilla</button>
+                  {canEdit && (
+                    <button className="btn-outline" onClick={() => openEditModal(cat)}>Editar Info</button>
+                  )}
                 </div>
               </div>
+            );
+          })}
+        </div>
+      )}
 
-              <div className="cat-card-footer">
-                <button className="btn-outline">Gestionar Plantilla</button>
-                <button className="btn-outline">Editar Info</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Modal Nueva Categoría */}
+      {/* Modal Crear/Editar Categoría */}
       <AnimatePresence>
         {showModal && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
@@ -87,7 +156,7 @@ const CategoriesDash = () => {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
             >
               <div className="modal-header">
-                <h2>Nueva <span className="text-sky">Categoría</span></h2>
+                <h2>{isEditing ? 'Editar' : 'Nueva'} <span className="text-sky">Categoría</span></h2>
                 <button className="close-btn" onClick={() => setShowModal(false)}><X size={24} /></button>
               </div>
 
@@ -99,8 +168,8 @@ const CategoriesDash = () => {
                       <input 
                         type="text" 
                         placeholder="Ej: Sub-18"
-                        value={newCat.name}
-                        onChange={(e) => setNewCat({...newCat, name: e.target.value})}
+                        value={currentCat.name}
+                        onChange={(e) => setCurrentCat({...currentCat, name: e.target.value})}
                       />
                     </div>
                     <div className="field">
@@ -108,8 +177,8 @@ const CategoriesDash = () => {
                       <input 
                         type="text" 
                         placeholder="Ej: Juvenil, Mini, etc."
-                        value={newCat.label}
-                        onChange={(e) => setNewCat({...newCat, label: e.target.value})}
+                        value={currentCat.label || ''}
+                        onChange={(e) => setCurrentCat({...currentCat, label: e.target.value})}
                       />
                     </div>
                   </div>
@@ -120,8 +189,8 @@ const CategoriesDash = () => {
                       <input 
                         type="text" 
                         placeholder="Ej: 17-18 años"
-                        value={newCat.ageRange}
-                        onChange={(e) => setNewCat({...newCat, ageRange: e.target.value})}
+                        value={currentCat.age_range || ''}
+                        onChange={(e) => setCurrentCat({...currentCat, age_range: e.target.value})}
                       />
                     </div>
                     <div className="field">
@@ -129,17 +198,24 @@ const CategoriesDash = () => {
                       <div className="color-picker-input">
                         <input 
                           type="color" 
-                          value={newCat.color}
-                          onChange={(e) => setNewCat({...newCat, color: e.target.value})}
+                          value={currentCat.color || '#cccccc'}
+                          onChange={(e) => setCurrentCat({...currentCat, color: e.target.value})}
                         />
-                        <span style={{ color: newCat.color, fontWeight: 700 }}>{newCat.color.toUpperCase()}</span>
+                        <span style={{ color: currentCat.color, fontWeight: 700 }}>{(currentCat.color || '').toUpperCase()}</span>
                       </div>
                     </div>
                   </div>
 
+                  {!isEditing && (
+                    <p style={{marginTop: '10px', fontSize: '0.85rem', color: '#94a3b8'}}>
+                      <Shield size={12} style={{display: 'inline', marginRight:'5px'}} />
+                      La visibilidad será para Administradores y Directores Técnicos.
+                    </p>
+                  )}
+
                   <button className="btn-primary save-action" onClick={handleSave} style={{ marginTop: '20px' }}>
                     <Save size={18} />
-                    Crear Categoría
+                    {isEditing ? 'Guardar Cambios' : 'Crear Categoría'}
                   </button>
                 </div>
               </div>
@@ -148,20 +224,18 @@ const CategoriesDash = () => {
         )}
       </AnimatePresence>
 
-      <div className="cat-stats-summary glass">
-        <div className="summary-item">
-          <span className="label">Total Categorías</span>
-          <span className="value">{categoriesList.length}</span>
+      {!loading && (
+        <div className="cat-stats-summary glass">
+          <div className="summary-item">
+            <span className="label">Total Categorías</span>
+            <span className="value">{categoriesList.length}</span>
+          </div>
+          <div className="summary-item">
+            <span className="label">Total Jugadores</span>
+            <span className="value">{profiles.filter(p => p.role === 'player').length}</span>
+          </div>
         </div>
-        <div className="summary-item">
-          <span className="label">Promedio Edad</span>
-          <span className="value">11.5 años</span>
-        </div>
-        <div className="summary-item">
-          <span className="label">Capacidad de Campo</span>
-          <span className="value">95%</span>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
