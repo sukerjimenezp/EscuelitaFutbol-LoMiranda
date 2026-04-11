@@ -101,7 +101,12 @@ const SkinsManagement = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm('¿Eliminar esta recompensa?')) {
-      await deleteSkinAdmin(id);
+      const { error } = await deleteSkinAdmin(id);
+      if (error) {
+        alert('No se pudo eliminar: ' + error.message);
+      } else {
+        alert('Recompensa eliminada exitosamente.');
+      }
     }
   };
 

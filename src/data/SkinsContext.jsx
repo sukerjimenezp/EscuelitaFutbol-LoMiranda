@@ -91,6 +91,18 @@ export const SkinsProvider = ({ children }) => {
   };
 
   const deleteSkinAdmin = async (id) => {
+    // 1. First remove any references in user_skins to prevent foreign key constraint violations
+    const { error: relError } = await supabase
+      .from('user_skins')
+      .delete()
+      .eq('skin_id', id);
+      
+    if (relError) {
+      console.error("Error removing user_skins references:", relError);
+      // We can continue, but if it's a hard FK constraint, the next query will throw an error we return anyway.
+    }
+
+    // 2. Now delete the skin itself
     const { error } = await supabase
       .from('skins')
       .delete()
