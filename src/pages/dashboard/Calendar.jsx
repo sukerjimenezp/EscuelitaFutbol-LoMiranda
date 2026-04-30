@@ -15,7 +15,9 @@ import {
   CheckCircle,
   MessageCircle,
   Image as ImageIcon,
-  Send
+  Send,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, getDay, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -28,11 +30,21 @@ const Calendar = () => {
   const { user } = useAuth();
   const isAdmin = user && ['superadmin', 'dt', 'contador'].includes(user.role);
 
+  // Helper para evitar desfases de zona horaria al parsear 'YYYY-MM-DD'
+  const parseLocalDate = (dateStr) => {
+    if (!dateStr) return new Date();
+    // Al usar el constructor new Date(y, m, d) JS asume hora local,
+    // evitando que '2026-05-10' se interprete como UTC y retroceda un día.
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkSuccess, setBulkSuccess] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false); // Nuevo: Estado para confirmación de borrado
   const [eventList, setEventList] = useState(events);
   
   // Estado para ver detalles de un evento
@@ -66,6 +78,17 @@ const Calendar = () => {
     description: ''
   });
 
+  // Estado para Coordinación de Partidos
+  const [showMatchModal, setShowMatchModal] = useState(false);
+  const [matchCoordination, setMatchCoordination] = useState({
+    rival: '',
+    date: format(addDays(new Date(), 3), 'yyyy-MM-dd'), // Default: en 3 días
+    location: 'Cancha Lo Miranda',
+    series: [], // Array de { id: 'sub10', time: '09:00' }
+    description: '',
+    flyer: null
+  });
+
   // Lógica de fechas
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(monthStart);
@@ -87,13 +110,23 @@ const Calendar = () => {
   const handleSaveEvent = () => {
     if (!newEvent.title) return alert('Debes ingresar un título para el evento');
 
-    const eventToSave = {
-      ...newEvent,
-      id: Date.now(),
-    };
+    if (newEvent.id) {
+      // Editar evento existente
+      setEventList(prev => prev.map(e => e.id === newEvent.id ? newEvent : e));
+    } else {
+      // Crear nuevo evento
+      const eventToSave = {
+        ...newEvent,
+        id: Date.now(),
+      };
+      setEventList(prev => [...prev, eventToSave]);
+    }
 
-    setEventList(prev => [...prev, eventToSave]);
     setShowModal(false);
+    resetNewEvent();
+  };
+
+  const resetNewEvent = () => {
     setNewEvent({
       title: '',
       date: format(new Date(), 'yyyy-MM-dd'),
@@ -103,6 +136,25 @@ const Calendar = () => {
       category: 'sub10',
       description: ''
     });
+  };
+
+  const handleDeleteEvent = (eventId) => {
+    // Si ya estamos en estado de confirmación, ejecutamos el borrado
+    if (isDeleting) {
+      setEventList(prev => prev.filter(e => e.id !== eventId));
+      setSelectedEvent(null);
+      setIsDeleting(false);
+    } else {
+      // Si no, activamos la confirmación
+      setIsDeleting(true);
+    }
+  };
+
+  const handleEditClick = (event) => {
+    setNewEvent(event);
+    setSelectedEvent(null);
+    setShowModal(true);
+    setIsDeleting(false); // Reset por si acaso
   };
 
   // Toggle día de la semana en carga masiva
@@ -120,8 +172,8 @@ const Calendar = () => {
     if (bulkConfig.days.length === 0) return alert('Selecciona al menos un día de la semana');
     if (!bulkConfig.title) return alert('Ingresa un título para los eventos');
 
-    const from = new Date(bulkConfig.dateFrom);
-    const to = new Date(bulkConfig.dateTo);
+    const from = parseLocalDate(bulkConfig.dateFrom);
+    const to = parseLocalDate(bulkConfig.dateTo);
     const allDays = eachDayOfInterval({ start: from, end: to });
 
     // Filtrar solo los días seleccionados (getDay: 0=Dom, 1=Lun...6=Sab)
@@ -164,6 +216,90 @@ const Calendar = () => {
     }
   };
 
+  // ── Lógica Coordinación de Partidos ──
+
+  const handleToggleMatchSerie = (categoryId) => {
+    setMatchCoordination(prev => {
+      const exists = prev.series.find(s => s.id === categoryId);
+      if (exists) {
+        return { ...prev, series: prev.series.filter(s => s.id !== categoryId) };
+      } else {
+        return { ...prev, series: [...prev.series, { id: categoryId, time: '10:00' }] };
+      }
+    });
+  };
+
+  const handleMatchTimeChange = (categoryId, time) => {
+    setMatchCoordination(prev => ({
+      ...prev,
+      series: prev.series.map(s => s.id === categoryId ? { ...s, time } : s)
+    }));
+  };
+
+  const handleMatchFlyerUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setMatchCoordination(prev => ({ ...prev, flyer: URL.createObjectURL(file) }));
+    }
+  };
+
+  const handleSaveMatchCoordination = () => {
+    if (!matchCoordination.rival.trim()) return alert('Debes ingresar el nombre del club rival');
+    if (matchCoordination.series.length === 0) return alert('Debes seleccionar al menos una serie para el encuentro');
+
+    // Generar un evento "match" por cada serie seleccionada
+    const newEvents = matchCoordination.series.map((serie, idx) => ({
+      id: Date.now() + idx,
+      type: 'match',
+      title: `vs ${matchCoordination.rival}`,
+      date: matchCoordination.date,
+      time: serie.time,
+      location: matchCoordination.location,
+      category: serie.id,
+      description: matchCoordination.description,
+      flyer: matchCoordination.flyer // Guardamos la referencia de la imagen
+    }));
+
+    setEventList(prev => [...prev, ...newEvents]);
+    setShowMatchModal(false);
+
+    // Formatear mensaje de WhatsApp sugerido
+    // Usamos parseLocalDate para que la fecha en el mensaje coincida con lo ingresado
+    const matchDateObj = parseLocalDate(matchCoordination.date);
+    let waSuggestedMessage = `⚽ *PROGRAMACIÓN OFICIAL* ⚽\n\n🏆 *Encuentro:* Lo Miranda FC vs ${matchCoordination.rival}\n📅 *Fecha:* ${format(matchDateObj, "EEEE d 'de' MMMM", { locale: es })}\n📍 *Lugar:* ${matchCoordination.location}\n\n*🕒 HORARIOS POR SERIE:*\n`;
+    
+    // Ordenar series por hora para el mensaje
+    const sortedSeries = [...matchCoordination.series].sort((a, b) => a.time.localeCompare(b.time));
+    
+    sortedSeries.forEach(s => {
+      const catName = categories.find(c => c.id === s.id)?.name || s.id;
+      waSuggestedMessage += `🔹 *${catName}:* ${s.time} hrs\n`;
+    });
+
+    if (matchCoordination.description) {
+      waSuggestedMessage += `\n📝 *Notas:* ${matchCoordination.description}\n`;
+    }
+    
+    waSuggestedMessage += `\n¡Los esperamos a todos con la mejor energía! 🙌⚽`;
+
+    // Resetear formulario
+    setMatchCoordination({
+      rival: '',
+      date: format(addDays(new Date(), 3), 'yyyy-MM-dd'),
+      location: 'Cancha Lo Miranda',
+      series: [],
+      description: '',
+      flyer: null
+    });
+
+    // Abrir modal de WhatsApp con el texto pre-llenado (y la imagen si existe)
+    setWaMessage(waSuggestedMessage);
+    setWaImage(matchCoordination.flyer);
+    setTimeout(() => {
+      setShowWaModal(true);
+    }, 500);
+  };
+
   return (
     <div className="calendar-page">
       <div className="page-header">
@@ -192,6 +328,10 @@ const Calendar = () => {
                 <Copy size={18} />
                 Carga Masiva
               </button>
+              <button className="btn-primary" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }} onClick={() => setShowMatchModal(true)}>
+                <Trophy size={18} />
+                Coordinar Encuentro
+              </button>
               <button className="btn-primary" onClick={() => setShowModal(true)}>
                 <Plus size={18} />
                 Agendar Evento
@@ -218,7 +358,9 @@ const Calendar = () => {
               <div key={day} className="weekday-label">{day}</div>
             ))}
             {calendarDays.map((day, idx) => {
-              const dayEvents = filteredEvents.filter(e => isSameDay(new Date(e.date), day));
+              // Comparamos strings directamente 'yyyy-MM-dd' para evitar problemas de zona horaria
+              const dayStr = format(day, 'yyyy-MM-dd');
+              const dayEvents = filteredEvents.filter(e => e.date === dayStr);
               const hasEvents = dayEvents.length > 0;
               return (
                 <div 
@@ -306,8 +448,8 @@ const Calendar = () => {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
             >
               <div className="modal-header">
-                <h2>Agendar <span className="text-sky">Evento</span></h2>
-                <button className="close-btn" onClick={() => setShowModal(false)}><X size={24} /></button>
+                <h2>{newEvent.id ? 'Editar' : 'Agendar'} <span className="text-sky">Evento</span></h2>
+                <button className="close-btn" onClick={() => { setShowModal(false); resetNewEvent(); }}><X size={24} /></button>
               </div>
 
               <div className="event-form">
@@ -383,7 +525,7 @@ const Calendar = () => {
 
                 <button className="btn-primary save-action" onClick={handleSaveEvent}>
                   <Save size={18} />
-                  Agendar Evento
+                  {newEvent.id ? 'Guardar Cambios' : 'Agendar Evento'}
                 </button>
               </div>
             </motion.div>
@@ -550,7 +692,7 @@ const Calendar = () => {
                     <CalendarIcon size={18} className="text-sky" />
                     <div>
                       <span className="detail-label">Fecha</span>
-                      <p>{format(new Date(selectedEvent.date), "EEEE d 'de' MMMM, yyyy", { locale: es })}</p>
+                      <p>{format(parseLocalDate(selectedEvent.date), "EEEE d 'de' MMMM, yyyy", { locale: es })}</p>
                     </div>
                   </div>
                   
@@ -585,9 +727,40 @@ const Calendar = () => {
                     <p>{selectedEvent.description}</p>
                   </div>
                 )}
+
+                {selectedEvent.flyer && (
+                  <div className="details-flyer">
+                    <h4>Flyer del Partido</h4>
+                    <img src={selectedEvent.flyer} alt="Flyer del encuentro" className="flyer-img-detail" />
+                  </div>
+                )}
                 
                 <div className="details-actions">
-                  <button className="btn-secondary-outline" onClick={() => setSelectedEvent(null)}>Cerrar</button>
+                  <div className="admin-actions">
+                    {isAdmin && (
+                      <>
+                        {!isDeleting ? (
+                          <>
+                            <button className="btn-edit" onClick={() => handleEditClick(selectedEvent)}>
+                              <Edit size={16} />
+                              Editar
+                            </button>
+                            <button className="btn-delete" onClick={() => setIsDeleting(true)}>
+                              <Trash2 size={16} />
+                              Eliminar
+                            </button>
+                          </>
+                        ) : (
+                          <div className="confirm-delete-zone">
+                            <span>¿Confirmas eliminar?</span>
+                            <button className="btn-confirm-delete" onClick={() => handleDeleteEvent(selectedEvent.id)}>Sí, borrar</button>
+                            <button className="btn-cancel-delete" onClick={() => setIsDeleting(false)}>No</button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <button className="btn-secondary-outline" onClick={() => { setSelectedEvent(null); setIsDeleting(false); }}>Cerrar</button>
                 </div>
               </div>
             </motion.div>
@@ -649,6 +822,130 @@ const Calendar = () => {
                 <button className="btn-success-solid wa-send-btn" onClick={handleSendWhatsApp}>
                   <Send size={18} />
                   Abrir WhatsApp Web
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Modal de Coordinación de Partido */}
+      <AnimatePresence>
+        {showMatchModal && (
+          <div className="modal-overlay" onClick={() => setShowMatchModal(false)}>
+            <motion.div 
+              className="event-modal match-modal glass" 
+              onClick={e => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            >
+              <div className="modal-header">
+                <h2>Coordinar <span className="text-warning">Encuentro</span></h2>
+                <button className="close-btn" onClick={() => setShowMatchModal(false)}><X size={24} /></button>
+              </div>
+
+              <div className="match-form">
+                <div className="form-row">
+                  <div className="field">
+                    <label>Club Rival</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ej: Colo Colo Filial"
+                      value={matchCoordination.rival}
+                      onChange={(e) => setMatchCoordination(prev => ({ ...prev, rival: e.target.value }))}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Fecha</label>
+                    <input 
+                      type="date" 
+                      value={matchCoordination.date}
+                      onChange={(e) => setMatchCoordination(prev => ({ ...prev, date: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="field">
+                    <label>Lugar del Encuentro</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ej: Complejo Deportivo Rancagua"
+                      value={matchCoordination.location}
+                      onChange={(e) => setMatchCoordination(prev => ({ ...prev, location: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label>Series Participantes y Horarios</label>
+                  <div className="series-selection-grid">
+                    {categories.map(cat => {
+                      const isSelected = matchCoordination.series.some(s => s.id === cat.id);
+                      const serieData = matchCoordination.series.find(s => s.id === cat.id);
+                      
+                      return (
+                        <div key={cat.id} className={`serie-selection-row ${isSelected ? 'active' : ''}`}>
+                          <label className="serie-checkbox">
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={() => handleToggleMatchSerie(cat.id)}
+                            />
+                            <span className="cat-dot" style={{ backgroundColor: cat.color }}></span>
+                            {cat.name}
+                          </label>
+                          
+                          {isSelected && (
+                            <div className="serie-time-input">
+                              <Clock size={14} />
+                              <input 
+                                type="time" 
+                                value={serieData.time}
+                                onChange={(e) => handleMatchTimeChange(cat.id, e.target.value)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="field">
+                    <label>Flyer / Afiche del Partido</label>
+                    <div className="match-flyer-uploader">
+                      <input type="file" id="match-flyer" accept="image/*" onChange={handleMatchFlyerUpload} style={{ display: 'none' }} />
+                      <label htmlFor="match-flyer" className="flyer-upload-zone">
+                        {matchCoordination.flyer ? (
+                          <div className="flyer-preview-container">
+                            <img src={matchCoordination.flyer} alt="Preview Flyer" />
+                            <div className="flyer-overlay"><ImageIcon size={20} /> Cambiar</div>
+                          </div>
+                        ) : (
+                          <div className="flyer-placeholder">
+                            <Plus size={32} />
+                            <span>Subir Foto de Coordinación</span>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label>Notas / Requisitos (Opcional)</label>
+                    <textarea 
+                      placeholder="Ej: Todos con polera azul. Llegar 20 min antes..."
+                      value={matchCoordination.description}
+                      onChange={(e) => setMatchCoordination(prev => ({ ...prev, description: e.target.value }))}
+                      rows={5}
+                    />
+                  </div>
+                </div>
+
+                <button className="btn-primary save-action" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }} onClick={handleSaveMatchCoordination}>
+                  <Trophy size={18} />
+                  Agendar Encuentro Completo
                 </button>
               </div>
             </motion.div>

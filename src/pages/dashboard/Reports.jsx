@@ -8,7 +8,7 @@ import {
   FileDigit
 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import logo from '../../assets/logo.jpg';
 import { finances, playersByCategory } from '../../data/mockData';
 import { format, parseISO, isSameMonth } from 'date-fns';
@@ -67,14 +67,14 @@ const Reports = () => {
       const filteredFinances = finances.filter(f => isSameMonth(parseISO(f.date), targetDate));
       
       const tableData = filteredFinances.map(f => [f.date, f.description, f.type === 'income' ? 'Ingreso' : 'Egreso', `$${f.amount.toLocaleString()}`]);
-      doc.autoTable({ startY: 45, head: [['Fecha', 'Detalle', 'Tipo', 'Monto']], body: tableData, theme: 'grid' });
+      autoTable(doc, { startY: 45, head: [['Fecha', 'Detalle', 'Tipo', 'Monto']], body: tableData, theme: 'grid' });
       
       filename = `balance_${targetMonthStr}.pdf`;
     } else if (reportId === 3) {
       doc.text('REPORTE DE PATROCINADORES', 40, 20);
       doc.text('Generado el: ' + new Date().toLocaleDateString(), 40, 28);
       const sponsorIncomes = finances.filter(f => f.type === 'income' && f.description.toLowerCase().includes('patrocinador')).map(f => [f.date, f.description, `$${f.amount.toLocaleString()}`]);
-      doc.autoTable({ startY: 45, head: [['Fecha', 'Patrocinador', 'Aporte']], body: sponsorIncomes.length ? sponsorIncomes : [['-', 'Sin aportes registrados', '-']], theme: 'grid' });
+      autoTable(doc, { startY: 45, head: [['Fecha', 'Patrocinador', 'Aporte']], body: sponsorIncomes.length ? sponsorIncomes : [['-', 'Sin aportes registrados', '-']], theme: 'grid' });
       filename = 'reporte_patrocinadores.pdf';
     } else if (reportId === 4) {
       if (!targetMonthStr) return;
@@ -94,7 +94,7 @@ const Reports = () => {
         return [u.name, u.category || 'Sin Cat.', `${randomPercent}%`, randomPercent > 80 ? 'Excelente' : 'Regular'];
       });
 
-      doc.autoTable({ startY: 45, head: [['Jugador', 'Categoría', 'Asistencia (%)', 'Observación']], body: attendanceData, theme: 'grid' });
+      autoTable(doc, { startY: 45, head: [['Jugador', 'Categoría', 'Asistencia (%)', 'Observación']], body: attendanceData, theme: 'grid' });
       filename = `asistencia_${targetMonthStr}.pdf`;
     }
 

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './data/AuthContext';
 import { LiveProvider } from './data/LiveContext';
 import { SkinsProvider } from './data/SkinsContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import Toast from './components/Toast';
 
 // Layouts (always loaded — small)
 import Navbar from './components/layout/Navbar';
@@ -15,6 +16,7 @@ const Home          = lazy(() => import('./pages/Home'));
 const Categories    = lazy(() => import('./pages/Categories'));
 const TeamPage      = lazy(() => import('./pages/TeamPage'));
 const Login         = lazy(() => import('./pages/Login'));
+const Onboarding    = lazy(() => import('./pages/Onboarding'));
 const Streaming     = lazy(() => import('./pages/Streaming'));
 const GalleryPublic = lazy(() => import('./pages/GalleryPublic'));
 
@@ -100,6 +102,7 @@ function App() {
                 <Route path="/categorias" element={<PublicLayout><Categories /></PublicLayout>} />
                 <Route path="/categorias/:categoryId" element={<PublicLayout><TeamPage /></PublicLayout>} />
                 <Route path="/login" element={<PublicLayout><Login /></PublicLayout>} />
+                <Route path="/onboarding" element={<PublicLayout><Onboarding /></PublicLayout>} />
                 <Route path="/streaming" element={<PublicLayout><Streaming /></PublicLayout>} />
                 <Route path="/galeria" element={<PublicLayout><GalleryPublic /></PublicLayout>} />
 
@@ -141,6 +144,7 @@ function App() {
         </SkinsProvider>
       </AuthProvider>
     </BrowserRouter>
+      <Toast />
     </ErrorBoundary>
   );
 }

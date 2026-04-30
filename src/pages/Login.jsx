@@ -13,15 +13,19 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
 
-  // Si ya está autenticado, redirigir al dashboard
+  // Si ya está autenticado, analizar correo para decidir destino (Onboarding vs Dashboard)
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
+    if (isAuthenticated && user) {
+      if (user.email?.endsWith('@escuelita.local')) {
+        navigate('/onboarding');
+      } else {
+        navigate('/dashboard');
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
   // Cargar email guardado
   useEffect(() => {
@@ -38,16 +42,33 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Llamar directamente a supabase, sin Promise.race ni timeouts
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: username,
+      let loginEmail = username.trim();
+      
+      // Si el jugador escribió solo su usuario (ej: sjimenez), buscamos su correo real
+      if (!loginEmail.includes('@')) {
+        // Intentamos buscar en profiles si es que RLS nos lo permite
+        // Filtramos buscando el perfil donde el email temporal empiece con ese username
+        // o si hay algún campo específico. Si ya actualizó su correo, el email ya no tendrá el username.
+        // Lo más seguro es intentar loguearse con el correo fantasma y si falla, dar el error normal.
+        loginEmail = `${loginEmail}@escuelita.local`;
+      }
+
+      // Llamar directamente a supabase
+      let { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
         password: password
       });
 
-      if (authError) {
+      // Si falló y el usuario había metido su username, quizás ya había cambiado su correo en Onboarding.
+      // Como no tenemos el correo a mano por front, le avisamos:
+      if (authError && !username.trim().includes('@')) {
+         setError('Si ya configuraste tu cuenta, debes ingresar con tu Correo Real en lugar del nombre de usuario.');
+         setLoading(false);
+         return;
+      } else if (authError) {
         // Traducir errores comunes
         let msg = authError.message;
-        if (msg.includes('Invalid login')) msg = 'Correo o contraseña incorrectos.';
+        if (msg.includes('Invalid login')) msg = 'Usuario o contraseña incorrectos.';
         if (msg.includes('Email not confirmed')) msg = 'Tu correo aún no ha sido confirmado.';
         setError(msg);
         setLoading(false);
@@ -82,12 +103,12 @@ const Login = () => {
           {error && <div className="login-error">{error}</div>}
 
           <div className="form-group">
-            <label>Correo electrónico</label>
+            <label>Usuario Inicial o Correo</label>
             <input
-              type="email"
+              type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="tu@correo.cl"
+              placeholder="Ej: sjimenez o tu@correo.cl"
               required
             />
           </div>

@@ -30,9 +30,14 @@ export const AuthProvider = ({ children }) => {
               role: session.user.email === 'escuelafclomiranda@gmail.com' ? 'superadmin' : profile.role
             });
           } else if (mounted) {
-            // User exists but no profile yet (or error fetching profile)
-            const fallbackRole = session.user.email === 'escuelafclomiranda@gmail.com' ? 'superadmin' : 'player';
-            setUser({ ...session.user, name: session.user.email, role: fallbackRole });
+            // [FIX: Fallback Inseguro de Rol] No asignar 'player' sin perfil.
+            if (session.user.email === 'escuelafclomiranda@gmail.com') {
+              setUser({ ...session.user, name: 'Super Admin', role: 'superadmin' });
+            } else {
+              // Si no tiene perfil válido, se invalida el acceso.
+              setUser(null);
+              supabase.auth.signOut();
+            }
           }
         }
       } catch (err) {
@@ -96,8 +101,12 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
           console.error('[AuthContext] Auth change profile fetch error:', err);
           if (mounted) {
-            const fallbackRole = session.user.email === 'escuelafclomiranda@gmail.com' ? 'superadmin' : 'player';
-            setUser({ ...session.user, name: session.user.email, role: fallbackRole });
+            if (session.user.email === 'escuelafclomiranda@gmail.com') {
+              setUser({ ...session.user, name: 'Super Admin', role: 'superadmin' });
+            } else {
+              setUser(null);
+              supabase.auth.signOut();
+            }
           }
         } finally {
           if (mounted) setLoading(false);

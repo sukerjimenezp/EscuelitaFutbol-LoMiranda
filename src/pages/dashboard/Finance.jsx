@@ -20,7 +20,7 @@ import {
   FileText,
   Calendar as CalendarIcon
 } from 'lucide-react';
-import { finances } from '../../data/mockData';
+import { supabase } from '../../lib/supabase';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import logo from '../../assets/logo.jpg';
@@ -28,17 +28,37 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format, subMonths, isSameMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Info, AlertCircle } from 'lucide-react';
+import { showToast } from '../../components/Toast';
 import './Finance.css';
 
 const Finance = () => {
-  const [financeList, setFinanceList] = useState(finances);
+  const [financeList, setFinanceList] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [newMovement, setNewMovement] = useState({
     description: '',
     amount: '',
     type: 'income',
     date: new Date().toISOString().split('T')[0]
   });
+
+  const fetchFinances = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (!error && data) {
+      setFinanceList(data);
+    }
+    setLoading(false);
+  };
+
+  React.useEffect(() => {
+    fetchFinances();
+  }, []);
 
   // Fechas para comparativas
   const currentDate = new Date();
@@ -133,20 +153,31 @@ const Finance = () => {
     doc.save(`reporte_financiero_${new Date().getMonth() + 1}_2026.pdf`);
   };
 
-  const handleSaveMovement = () => {
-    if (!newMovement.description || !newMovement.amount) return alert('Completa los campos.');
+  const handleSaveMovement = async () => {
+    if (!newMovement.description || !newMovement.amount) {
+       showToast('Completa los campos.', 'error');
+       return;
+    }
     
+    setSaving(true);
     const mov = {
-      id: Date.now(),
       description: newMovement.description,
       amount: parseFloat(newMovement.amount),
       type: newMovement.type,
       date: newMovement.date
     };
 
-    setFinanceList([mov, ...financeList]);
-    setShowModal(false);
-    setNewMovement({ ...newMovement, description: '', amount: '' });
+    const { error } = await supabase.from('payments').insert([mov]);
+    
+    if (error) {
+       showToast('Error al guardar movimiento: ' + error.message, 'error');
+    } else {
+       showToast('Movimiento registrado correctamente', 'success');
+       fetchFinances();
+       setShowModal(false);
+       setNewMovement({ ...newMovement, description: '', amount: '' });
+    }
+    setSaving(false);
   };
 
   return (
@@ -259,7 +290,7 @@ const Finance = () => {
             <h3>Últimos Movimientos</h3>
           </div>
           <div className="transactions-list">
-            {financeList.map(item => (
+            {loading ? <p>Cargando movimientos...</p> : financeList.length === 0 ? <p>No hay datos.</p> : financeList.map(item => (
               <div key={item.id} className="transaction-item">
                 <div className={`t-icon ${item.type}`}>
                   {item.type === 'income' ? <Plus size={16} /> : <div className="minus-sign"></div>}
@@ -345,8 +376,9 @@ const Finance = () => {
 
                 <button 
                   onClick={handleSaveMovement}
-                  style={{ marginTop: '15px', padding: '15px', background: 'var(--sky-400)', color: 'white', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}
-                >Guardar Movimiento</button>
+                  disabled={saving}
+                  style={{ marginTop: '15px', padding: '15px', background: 'var(--sky-400)', color: 'white', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none', opacity: saving ? 0.7 : 1 }}
+                >{saving ? 'Guardando...' : 'Guardar Movimiento'}</button>
               </div>
             </motion.div>
           </div>

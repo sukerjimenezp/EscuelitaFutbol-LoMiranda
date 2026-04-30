@@ -9,11 +9,18 @@ import {
   Users,
   Save,
   Filter,
-  Trophy
+  Trophy,
+  FileText,
+  X
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import logo from '../../assets/logo.jpg';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import './Attendance.css';
+import { showToast } from '../../components/Toast';
 
 const Attendance = () => {
   const { user } = useAuth();
@@ -22,6 +29,14 @@ const Attendance = () => {
   const [attendanceData, setAttendanceData] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // States for PDF Report
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportMode, setReportMode] = useState('month');
+  const [reportMonth, setReportMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [reportStart, setReportStart] = useState('');
+  const [reportEnd, setReportEnd] = useState('');
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   const fetchAttendance = useCallback(async () => {
     setLoading(true);
@@ -71,38 +86,129 @@ const Attendance = () => {
       status: status
     }));
 
-    // 2. Upsert Attendance (Delete existing for today, then insert)
-    await supabase.from('attendance').delete().eq('date', today);
-    const { error: attError } = await supabase.from('attendance').insert(records);
+    // 2. Upsert Attendance (Seguridad Idempotente en Supabase DB con Constraint \`unique_attendance_per_day\`)
+    // IMPORTANTE: Los puntos de Gamificación ahora son manejados exclusivamente
+    // mediante un Trigger en Supabase (ver remediation_patch.sql) cuando cambia a 'match' o 'present'.
+    const { error: attError } = await supabase
+       .from('attendance')
+       .upsert(records, { onConflict: 'player_id, date' });
 
     if (attError) {
-      alert('Error saving attendance: ' + attError.message);
-      setSaving(false);
-      return;
+      showToast('Error al guardar asistencia: ' + attError.message, 'error');
+    } else {
+      showToast('¡Asistencia y Puntos de Recompensa guardados correctamente!', 'success');
     }
-
-    // 3. GAMIFICATION: Award points for PRESENTE (+10) and MATCH (+50)
-    // We iterate through entries to update points in profiles
-    for (const [playerId, status] of Object.entries(attendanceData)) {
-      if (status === 'present' || status === 'match') {
-        const pointsToAdd = status === 'match' ? 50 : 10;
-        
-        // Supabase function approach is better, but since it's a simple dashboard:
-        const { data: currentProfile } = await supabase
-          .from('profiles')
-          .select('points')
-          .eq('id', playerId)
-          .single();
-        
-        await supabase
-          .from('profiles')
-          .update({ points: (currentProfile?.points || 0) + pointsToAdd })
-          .eq('id', playerId);
-      }
-    }
-
-    alert('Asistencia y Puntos de Recompensa guardados correctamente.');
+    
     setSaving(false);
+  };
+
+  const generateAttendanceReport = async () => {
+    setGeneratingReport(true);
+    let startDate, endDate, titlePeriod;
+
+    if (reportMode === 'month') {
+      if (!reportMonth) {
+        showToast('Debes seleccionar un mes', 'error');
+        setGeneratingReport(false);
+        return;
+      }
+      startDate = `${reportMonth}-01`;
+      const parts = reportMonth.split('-');
+      const endDay = new Date(parts[0], parts[1], 0).getDate();
+      endDate = `${reportMonth}-${endDay}`;
+      titlePeriod = format(new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1), 'MMMM yyyy', { locale: es }).toUpperCase();
+    } else {
+      if (!reportStart || !reportEnd) {
+         showToast('Selecciona la fecha inicio y fin', 'error');
+         setGeneratingReport(false);
+         return;
+      }
+      startDate = reportStart;
+      endDate = reportEnd;
+      // Añadimos T00:00 y zona horaria local segura al formateo
+      titlePeriod = `${format(new Date(startDate + 'T00:00:00'), 'dd/MM/yyyy')} a ${format(new Date(endDate + 'T00:00:00'), 'dd/MM/yyyy')}`;
+    }
+
+    try {
+      // 1. Fetch Players in the Category
+      const { data: catPlayers } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('category_id', selectedCategory)
+        .eq('role', 'player');
+      
+      const catName = categories.find(c => c.id === selectedCategory)?.name || selectedCategory;
+
+      if (!catPlayers || catPlayers.length === 0) {
+        showToast('No hay jugadores en esta categoría', 'error');
+        setGeneratingReport(false);
+        return;
+      }
+
+      // 2. Fetch Attendance for dates
+      const { data: attendanceLog, error: attError } = await supabase
+        .from('attendance')
+        .select('player_id, status, date')
+        .gte('date', startDate)
+        .lte('date', endDate);
+      
+      if (attError) throw attError;
+
+      // 3. Process Data
+      const tableData = catPlayers.map(player => {
+        const playerLog = attendanceLog?.filter(a => a.player_id === player.id) || [];
+        const totalClasses = playerLog.length;
+        if (totalClasses === 0) return [player.full_name, '0', '0', '0', '0%'];
+        
+        const presents = playerLog.filter(a => a.status === 'present' || a.status === 'match').length;
+        const absents = playerLog.filter(a => a.status === 'absent').length;
+        const percentage = Math.round((presents / totalClasses) * 100);
+        return [player.full_name, totalClasses.toString(), presents.toString(), absents.toString(), `${percentage}%`];
+      });
+
+      // 4. Generate PDF
+      const doc = new jsPDF();
+      
+      // Intentar cargar logo para Vite
+      const img = new window.Image();
+      img.src = logo;
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+
+      try {
+        doc.addImage(img, 'JPEG', 14, 10, 20, 20);
+      } catch (e) {
+        console.warn('No se pudo cargar el logo en PDF', e);
+      }
+
+      doc.setFontSize(18);
+      doc.setTextColor(11, 42, 94);
+      doc.text(`REPORTE DE ASISTENCIA: ${catName.toUpperCase()}`, 40, 18);
+      doc.setFontSize(12);
+      doc.text(`PERIODO: ${titlePeriod}`, 40, 26);
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generado el: ${new Date().toLocaleDateString()}`, 40, 32);
+
+      autoTable(doc, { 
+        startY: 40, 
+        head: [['Jugador', 'Clases Totales', 'Presentes/Partidos', 'Ausentes', '% Asistencia']], 
+        body: tableData, 
+        theme: 'grid',
+        headStyles: { fillColor: [11, 42, 94] }
+      });
+
+      doc.save(`asistencia_${selectedCategory}_${startDate}.pdf`);
+      showToast('Reporte generado exitosamente', 'success');
+      setShowReportModal(false);
+    } catch (err) {
+      console.error(err);
+      showToast('Error generando reporte: ' + (err.message || 'Desconocido'), 'error');
+    } finally {
+      setGeneratingReport(false);
+    }
   };
 
   const presentCount = Object.values(attendanceData).filter(s => s === 'present' || s === 'match').length;
@@ -122,6 +228,28 @@ const Attendance = () => {
         <button className="btn-primary save-btn" onClick={handleSave} disabled={saving}>
           <Save size={18} />
           {saving ? 'Guardando...' : 'Guardar y Entregar Puntos'}
+        </button>
+      </div>
+
+      <div className="filters-row glass mb-4" style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div className="category-select">
+          <Filter size={18} className="text-muted" />
+          <select 
+            value={selectedCategory} 
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            disabled={loading || saving}
+          >
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+        </div>
+        <button 
+          className="btn-secondary-outline export-report-btn" 
+          onClick={() => setShowReportModal(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', borderRadius: '12px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          <FileText size={16} /> Exportar Asistencia
         </button>
       </div>
 
@@ -194,6 +322,69 @@ const Attendance = () => {
           ))}
         </div>
       </div>
+
+      <AnimatePresence>
+        {showReportModal && (
+          <div className="modal-overlay" onClick={() => setShowReportModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <motion.div 
+              className="report-modal glass" 
+              onClick={e => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              style={{ width: '450px', padding: '30px', background: 'var(--bg-surface)', borderRadius: '24px', position: 'relative' }}
+            >
+              <button className="close-btn" style={{ position: 'absolute', top: '20px', right: '20px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setShowReportModal(false)}><X size={24} /></button>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '20px' }}>Exportar <span className="text-sky">Estadísticas</span></h2>
+              
+              <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
+                <button 
+                  className={`btn-secondary-outline ${reportMode === 'month' ? 'active' : ''}`}
+                  onClick={() => setReportMode('month')}
+                  style={{ flex: 1, padding: '10px', borderRadius: '12px', border: reportMode === 'month' ? '2px solid var(--sky-500)' : '1px solid rgba(255,255,255,0.1)', background: reportMode === 'month' ? 'rgba(56, 189, 248, 0.1)' : 'transparent', color: 'white', cursor: 'pointer' }}
+                >
+                  Mensual
+                </button>
+                <button 
+                  className={`btn-secondary-outline ${reportMode === 'range' ? 'active' : ''}`}
+                  onClick={() => setReportMode('range')}
+                  style={{ flex: 1, padding: '10px', borderRadius: '12px', border: reportMode === 'range' ? '2px solid var(--sky-500)' : '1px solid rgba(255,255,255,0.1)', background: reportMode === 'range' ? 'rgba(56, 189, 248, 0.1)' : 'transparent', color: 'white', cursor: 'pointer' }}
+                >
+                  Rango Fechas
+                </button>
+              </div>
+
+              {reportMode === 'month' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '25px' }}>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Selecciona el Mes</label>
+                  <input 
+                    type="month" 
+                    value={reportMonth}
+                    onChange={(e) => setReportMonth(e.target.value)}
+                    style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px', fontSize: '1rem' }}
+                  />
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '15px', marginBottom: '25px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Desde</label>
+                    <input type="date" value={reportStart} onChange={(e) => setReportStart(e.target.value)} style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                    <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Hasta</label>
+                    <input type="date" value={reportEnd} onChange={(e) => setReportEnd(e.target.value)} style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px' }} />
+                  </div>
+                </div>
+              )}
+
+              <button className="btn-primary" style={{ width: '100%', padding: '14px', fontSize: '1.05rem' }} onClick={generateAttendanceReport} disabled={generatingReport}>
+                {generatingReport ? 'Calculando Asistencias...' : 'Descargar PDF'}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };

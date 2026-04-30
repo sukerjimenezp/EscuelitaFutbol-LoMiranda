@@ -169,7 +169,7 @@ const ParentDashboardView = ({ user }) => {
   const [pupils, setPupils] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [newPupil, setNewPupil] = useState({ name: '', rut: '', category: 'sub10' });
+  const [newPupil, setNewPupil] = useState({ pin: '' });
 
   useEffect(() => {
     fetchMyPupils();
@@ -222,40 +222,39 @@ const ParentDashboardView = ({ user }) => {
     }
   };
 
-  const handleRegisterPupil = async () => {
-    if(!newPupil.name || !newPupil.rut) {
-      setError('Por favor completa todos los campos.');
-      return;
-    }
-
-    if(!validateRUT(newPupil.rut)) {
-      setError('El RUT ingresado no es válido (ej: 12345678-9).');
+  const handleLinkPupil = async () => {
+    if (!newPupil.pin) {
+      setError('Por favor ingresa el PIN de vinculación provisto por el profesor.');
       return;
     }
 
     setError('');
     try {
-      // Intentamos crear el perfil directamente vinculado
-      // NOTA: Para un sistema real, esto funcionaría mejor con una búsqueda previa 
-      // o un proceso de invitación, pero cumpliendo el flujo del usuario:
-      const { data, error: insertError } = await supabase
+      // 1. Validar integridad de PIN
+      const { data: pupil, error: findError } = await supabase
         .from('profiles')
-        .insert([{
-          full_name: newPupil.name.toUpperCase(),
-          email: `${cleanRUT(newPupil.rut)}@escuelitalomiranda.cl`, // Placeholder email
-          category_id: newPupil.category,
-          parent_id: user.id,
-          role: 'player'
-        }])
-        .select();
+        .select('id')
+        .eq('link_pin', newPupil.pin.trim().toUpperCase())
+        .eq('role', 'player')
+        .single();
 
-      if (insertError) throw insertError;
+      if (findError || !pupil) {
+         throw new Error('PIN inválido o jugador no encontrado.');
+      }
+
+      // 2. Asociar el perfil (Parent -> Player)
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ parent_id: user.id })
+        .eq('id', pupil.id);
+
+      if (updateError) throw updateError;
 
       setShowAddPupil(false);
-      setNewPupil({ name: '', rut: '', category: 'sub10' });
+      setNewPupil({ pin: '' });
       fetchMyPupils(); // Recargar lista
     } catch (err) {
-      setError('Error al registrar: ' + (err.message || 'Error desconocido'));
+      setError(err.message || 'Error desconocido');
     }
   };
 
@@ -271,7 +270,7 @@ const ParentDashboardView = ({ user }) => {
         </div>
         <button className="btn-primary" onClick={() => setShowAddPupil(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <UserPlus size={18} />
-          Registrar Pupilo
+          Vincular Pupilo
         </button>
       </div>
 
@@ -301,8 +300,8 @@ const ParentDashboardView = ({ user }) => {
         ) : pupils.length === 0 ? (
           <div className="glass" style={{ padding: '40px', textAlign: 'center', gridColumn: '1/-1' }}>
             <Users size={40} className="text-muted" style={{ marginBottom: '15px' }} />
-            <h3>No tienes pupilos registrados</h3>
-            <p>Haz clic en "Registrar Pupilo" para comenzar.</p>
+            <h3>No tienes pupilos vinculados</h3>
+            <p>Haz clic en "Vincular Pupilo" e ingresa el PIN del profesor.</p>
           </div>
         ) : pupils.map(p => (
           <div key={p.id} className="pupil-card glass">
@@ -353,8 +352,8 @@ const ParentDashboardView = ({ user }) => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
             >
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '8px' }}>Registrar <span className="text-sky">Pupilo</span></h2>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '25px' }}>Vincula a un nuevo alumno a tu supervisión.</p>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '8px' }}>Vincular <span className="text-sky">Pupilo</span></h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '25px' }}>Ingresa el código PIN proporcionado por el profesor para vincular a tu hijo.</p>
               
               {error && (
                 <div className="error-message glass" style={{ color: '#ef4444', padding: '10px', borderRadius: '10px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', border: '1px solid rgba(239,68,68,0.2)' }}>
@@ -363,48 +362,19 @@ const ParentDashboardView = ({ user }) => {
               )}
 
               <div className="form-group">
-                <label className="form-label">Nombre Completo</label>
+                <label className="form-label">PIN de Vinculación</label>
                 <input 
                   type="text" 
                   className="form-input"
-                  placeholder="Ej: MATEO MIRANDA"
-                  value={newPupil.name}
-                  onChange={(e) => setNewPupil({...newPupil, name: e.target.value})}
+                  placeholder="Ej: ABC-1234"
+                  value={newPupil.pin}
+                  onChange={(e) => setNewPupil({...newPupil, pin: e.target.value.toUpperCase()})}
                 />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">RUT / Identificación</label>
-                <input 
-                  type="text" 
-                  className="form-input"
-                  placeholder="12345678-9"
-                  value={newPupil.rut}
-                  onChange={(e) => setNewPupil({...newPupil, rut: e.target.value})}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Categoría</label>
-                <select 
-                  className="form-input"
-                  value={newPupil.category}
-                  onChange={(e) => setNewPupil({...newPupil, category: e.target.value})}
-                  style={{ appearance: 'none' }}
-                >
-                  <option value="sub6">Sub-06</option>
-                  <option value="sub8">Sub-08</option>
-                  <option value="sub10">Sub-10</option>
-                  <option value="sub12">Sub-12</option>
-                  <option value="sub14">Sub-14</option>
-                  <option value="sub16">Sub-16</option>
-                  <option value="adultos">Adultos</option>
-                </select>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button className="btn-secondary-outline" onClick={() => setShowAddPupil(false)} style={{ flex: 1 }}>Cancelar</button>
-                <button className="btn-primary" style={{ flex: 1 }} onClick={handleRegisterPupil}>Vincular</button>
+                <button className="btn-primary" style={{ flex: 1 }} onClick={handleLinkPupil}>Vincular</button>
               </div>
             </motion.div>
           </div>

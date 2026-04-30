@@ -20,3 +20,16 @@ export const supabase = createClient(
     }
   }
 );
+
+// Secondary client for Admin operations (creates users without dropping current session)
+export const adminAuthClient = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key',
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    }
+  }
+);
