@@ -241,7 +241,7 @@ const Players = () => {
         let rawUsername = `${initial}${lastname}`;
         
         // Si ya hay alguien con ese rawUsername, Supabase Auth tirará error y lo atajamos
-        const tempEmail = `${rawUsername}@escuelita.local`;
+        const tempEmail = `${rawUsername}@lomiranda.cl`;
         const tempPassword = rawUsername; // Contraseña default provisional
 
         // Se usa adminAuthClient para que el DT no se cierre sesión.
@@ -350,7 +350,7 @@ const Players = () => {
         ? parts[parts.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '')
         : parts[0].toLowerCase().replace(/[^a-z0-9]/g, '');
       const parentUsername = `${initial}${lastname}`;
-      const parentTempEmail = `${parentUsername}@escuelita.local`;
+      const parentTempEmail = `${parentUsername}@lomiranda.cl`;
 
       const { data: pAuth, error: pAuthErr } = await adminAuthClient.auth.signUp({
         email: parentTempEmail,
