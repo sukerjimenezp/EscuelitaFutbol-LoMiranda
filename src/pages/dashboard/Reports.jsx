@@ -10,8 +10,8 @@ import {
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logo from '../../assets/logo.jpg';
-import { finances, playersByCategory } from '../../data/mockData';
-import { format, parseISO, isSameMonth } from 'date-fns';
+import { supabase } from '../../lib/supabase';
+import { format, parseISO, isSameMonth, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 import './Reports.css';
@@ -46,55 +46,94 @@ const Reports = () => {
     }
   };
 
-  const generatePDF = (reportId, targetMonthStr) => {
+  const generatePDF = async (reportId, targetMonthStr) => {
     const doc = new jsPDF();
-    doc.addImage(logo, 'JPEG', 14, 10, 20, 20);
-    doc.setFontSize(18);
-    doc.setTextColor(11, 42, 94);
     
     let filename = `reporte_${reportId}_2026.pdf`;
 
     if (reportId === 1) {
       if (!targetMonthStr) return;
       const targetDate = parseISO(targetMonthStr + '-01');
+      const start = format(startOfMonth(targetDate), 'yyyy-MM-dd');
+      const end = format(endOfMonth(targetDate), 'yyyy-MM-dd');
+      
+      const { data: payments } = await supabase
+        .from('payments')
+        .select('*')
+        .gte('payment_date', start)
+        .lte('payment_date', end);
+
       const monthName = format(targetDate, 'MMMM yyyy', { locale: es }).toUpperCase();
       
+      doc.addImage(logo, 'JPEG', 14, 10, 20, 20);
+      doc.setFontSize(18);
+      doc.setTextColor(11, 42, 94);
       doc.text(`BALANCE GENERAL: ${monthName}`, 40, 20);
       doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text(`Generado el: ${new Date().toLocaleDateString()}`, 40, 28);
       
-      const filteredFinances = finances.filter(f => isSameMonth(parseISO(f.date), targetDate));
-      
-      const tableData = filteredFinances.map(f => [f.date, f.description, f.type === 'income' ? 'Ingreso' : 'Egreso', `$${f.amount.toLocaleString()}`]);
-      autoTable(doc, { startY: 45, head: [['Fecha', 'Detalle', 'Tipo', 'Monto']], body: tableData, theme: 'grid' });
+      const tableData = (payments || []).map(p => [
+        p.payment_date, 
+        `Mensualidad - ${p.player_id}`, 
+        'Ingreso', 
+        `$${p.amount.toLocaleString()}`
+      ]);
+
+      autoTable(doc, { 
+        startY: 45, 
+        head: [['Fecha', 'Detalle', 'Tipo', 'Monto']], 
+        body: tableData.length ? tableData : [['-', 'No hay registros', '-', '-']], 
+        theme: 'grid',
+        headStyles: { fillColor: [11, 42, 94] }
+      });
       
       filename = `balance_${targetMonthStr}.pdf`;
-    } else if (reportId === 3) {
-      doc.text('REPORTE DE PATROCINADORES', 40, 20);
-      doc.text('Generado el: ' + new Date().toLocaleDateString(), 40, 28);
-      const sponsorIncomes = finances.filter(f => f.type === 'income' && f.description.toLowerCase().includes('patrocinador')).map(f => [f.date, f.description, `$${f.amount.toLocaleString()}`]);
-      autoTable(doc, { startY: 45, head: [['Fecha', 'Patrocinador', 'Aporte']], body: sponsorIncomes.length ? sponsorIncomes : [['-', 'Sin aportes registrados', '-']], theme: 'grid' });
-      filename = 'reporte_patrocinadores.pdf';
     } else if (reportId === 4) {
       if (!targetMonthStr) return;
       const targetDate = parseISO(targetMonthStr + '-01');
+      const start = format(startOfMonth(targetDate), 'yyyy-MM-dd');
+      const end = format(endOfMonth(targetDate), 'yyyy-MM-dd');
+
+      const { data: attendanceLog } = await supabase
+        .from('attendance')
+        .select('*, profiles(full_name, category_id)')
+        .gte('date', start)
+        .lte('date', end);
+
       const monthName = format(targetDate, 'MMMM yyyy', { locale: es }).toUpperCase();
 
+      doc.addImage(logo, 'JPEG', 14, 10, 20, 20);
+      doc.setFontSize(18);
+      doc.setTextColor(11, 42, 94);
       doc.text(`ASISTENCIA MENSÚAL: ${monthName}`, 40, 20);
       doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text(`Generado el: ${new Date().toLocaleDateString()}`, 40, 28);
       
-      // Simular asistencia para la fecha indicada
-      const allPlayers = Object.values(playersByCategory).flat();
-      const attendanceData = allPlayers.map(u => {
-        // Simulamos porcentaje de asistencia aleatorio entre 60% y 100% para este reporte
-        const randomPercent = Math.floor(Math.random() * (100 - 60 + 1) + 60);
-        return [u.name, u.category || 'Sin Cat.', `${randomPercent}%`, randomPercent > 80 ? 'Excelente' : 'Regular'];
+      // Procesar asistencia por jugador
+      const stats = {};
+      attendanceLog?.forEach(log => {
+        const pid = log.player_id;
+        if (!stats[pid]) stats[pid] = { name: log.profiles?.full_name || 'Desconocido', cat: log.profiles?.category_id || '-', present: 0, total: 0 };
+        stats[pid].total++;
+        if (log.status === 'present' || log.status === 'match') stats[pid].present++;
       });
 
-      autoTable(doc, { startY: 45, head: [['Jugador', 'Categoría', 'Asistencia (%)', 'Observación']], body: attendanceData, theme: 'grid' });
+      const tableData = Object.values(stats).map(s => [
+        s.name, 
+        s.cat, 
+        `${Math.round((s.present / s.total) * 100)}%`, 
+        s.present >= (s.total * 0.8) ? 'Excelente' : 'Regular'
+      ]);
+
+      autoTable(doc, { 
+        startY: 45, 
+        head: [['Jugador', 'Categoría', 'Asistencia (%)', 'Observación']], 
+        body: tableData.length ? tableData : [['-', 'Sin datos', '-', '-']], 
+        theme: 'grid',
+        headStyles: { fillColor: [11, 42, 94] }
+      });
       filename = `asistencia_${targetMonthStr}.pdf`;
     }
 

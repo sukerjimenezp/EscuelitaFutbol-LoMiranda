@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { 
-  categories 
-} from '../../data/mockData';
-import { 
   Search, 
   Filter, 
   MessageSquare, 
@@ -23,6 +20,7 @@ const CoachMessages = () => {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [categoriesList, setCategoriesList] = useState([]);
   
   const [feedback, setFeedback] = useState({
     title: '¡BUEN TRABAJO!',
@@ -44,6 +42,14 @@ const CoachMessages = () => {
     setPlayers(data || []);
     setLoading(false);
   }, [selectedCategory]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase.from('categories').select('*').order('name');
+      if (data) setCategoriesList(data);
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     fetchPlayers();
@@ -125,7 +131,7 @@ const CoachMessages = () => {
         <div className="players-selector-sidebar glass">
           <div className="selector-filters">
             <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-              {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+              {categoriesList.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
             </select>
             <div className="search-mini">
               <Search size={14} />

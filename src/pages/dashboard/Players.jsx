@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase, adminAuthClient } from '../../lib/supabase';
-import { categories } from '../../data/mockData';
 import { getCategoryByAge } from '../../lib/ageValidator';
 import './Players.css';
 import { showToast, showConfirm } from '../../components/Toast';
@@ -28,6 +27,7 @@ const Players = () => {
   const [editingPlayerId, setEditingPlayerId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [categoriesList, setCategoriesList] = useState([]);
 
   // ── Estado Apoderado ──
   const [parentOption, setParentOption] = useState('none');
@@ -76,6 +76,15 @@ const Players = () => {
       .eq('role', 'parent');
     setExistingParents(data || []);
   };
+
+  const fetchCategories = async () => {
+    const { data } = await supabase.from('categories').select('*').order('name');
+    if (data) setCategoriesList(data);
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     const stats = [
@@ -382,17 +391,17 @@ const Players = () => {
       </div>
 
       <div className="filters-row glass">
-        <div className="category-select">
-          <Filter size={18} className="text-muted" />
-          <select 
-            value={selectedCategory} 
-            onChange={(e) => setSelectedCategory(e.target.value)}
-          >
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </select>
-        </div>
+          <div className="filter-group glass">
+            <Filter size={18} />
+            <select 
+              value={selectedCategory} 
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              {categoriesList.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
 
         <div className="search-input-wrapper">
           <Search size={18} className="text-muted" />
@@ -535,6 +544,18 @@ const Players = () => {
                   </div>
 
                   <div className="form-row">
+                    <div className="field">
+                      <label>Categoría</label>
+                      <select 
+                        className="form-input"
+                        value={newPlayer.category_id || selectedCategory}
+                        onChange={(e) => handleInputChange('category_id', e.target.value)}
+                      >
+                        {categoriesList.map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div className="field">
                       <label>Fecha de Nacimiento <small>(Asigna categoría)</small></label>
                       <input 

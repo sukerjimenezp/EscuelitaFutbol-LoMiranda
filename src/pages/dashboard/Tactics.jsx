@@ -11,7 +11,6 @@ import { useAuth } from '../../data/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { FORMATIONS } from '../../data/formations';
-import { categories } from '../../data/mockData';
 import SoccerPitch from '../../components/tactics/SoccerPitch';
 import MiniPlayerCard from '../../components/tactics/MiniPlayerCard';
 import { 
@@ -31,6 +30,7 @@ const Tactics = () => {
   const [formation, setFormation] = useState('4-3-3');
   const [deployedPlayers, setDeployedPlayers] = useState([]);
   const [activeId, setActiveId] = useState(null);
+  const [categoriesList, setCategoriesList] = useState([]);
 
   const BLANK_PLAYER = {
     id: 'blank-', // Se completará con el index
@@ -51,6 +51,14 @@ const Tactics = () => {
 
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase.from('categories').select('*').order('name');
+      if (data) setCategoriesList(data);
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     const fetchPlayers = async () => {
@@ -162,14 +170,19 @@ const Tactics = () => {
           <div className="header-actions">
             <div className="formation-selector glass">
               <Users size={18} className="text-sky" />
-              <select value={selectedCategory} onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                setDeployedPlayers([]); 
-              }}>
-                {categories.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <select 
+              value={selectedCategory} 
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="formation-select glass"
+            >
+              {categoriesList.length > 0 ? (
+                categoriesList.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))
+              ) : (
+                <option value="sub10">Cargando categorías...</option>
+              )}
+            </select>
             </div>
             <div className="formation-selector glass">
               <Layout size={18} className="text-sky" />

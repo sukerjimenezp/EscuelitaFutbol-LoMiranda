@@ -22,7 +22,7 @@ import {
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, getDay, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
-import { events, categories } from '../../data/mockData';
+import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../data/AuthContext';
 import './Calendar.css';
 
@@ -54,6 +54,15 @@ const Calendar = () => {
   const [showWaModal, setShowWaModal] = useState(false);
   const [waMessage, setWaMessage] = useState("⚽ ¡Hola familia Escuelita Lo Miranda FC!\n\nLes informamos que ya hemos actualizado el calendario con los próximos entrenamientos y eventos.\n\nPor favor, ingresen a la plataforma para revisarlos.\n\n¡Nos vemos en la cancha! 🏆");
   const [waImage, setWaImage] = useState(null);
+  const [categoriesList, setCategoriesList] = useState([]);
+
+  React.useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase.from('categories').select('*').order('name');
+      if (data) setCategoriesList(data);
+    };
+    fetchCategories();
+  }, []);
 
   // Estado para carga masiva
   const [bulkConfig, setBulkConfig] = useState({
@@ -272,7 +281,7 @@ const Calendar = () => {
     const sortedSeries = [...matchCoordination.series].sort((a, b) => a.time.localeCompare(b.time));
     
     sortedSeries.forEach(s => {
-      const catName = categories.find(c => c.id === s.id)?.name || s.id;
+      const catName = categoriesList.find(c => c.id === s.id)?.name || s.id;
       waSuggestedMessage += `🔹 *${catName}:* ${s.time} hrs\n`;
     });
 
@@ -312,7 +321,7 @@ const Calendar = () => {
             <Filter size={18} className="text-muted" />
             <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
               <option value="all">Todas las Categorías</option>
-              {categories.map(cat => (
+              {categoriesList.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
@@ -506,7 +515,7 @@ const Calendar = () => {
                   <div className="field">
                     <label>Categoría</label>
                     <select value={newEvent.category} onChange={e => handleInputChange('category', e.target.value)}>
-                      {categories.map(cat => (
+                      {categoriesList.map(cat => (
                         <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
                     </select>
@@ -646,7 +655,7 @@ const Calendar = () => {
                     <div className="field">
                       <label>Categoría</label>
                       <select value={bulkConfig.category} onChange={e => setBulkConfig(prev => ({ ...prev, category: e.target.value }))}>
-                        {categories.map(cat => (
+                        {categoriesList.map(cat => (
                           <option key={cat.id} value={cat.id}>{cat.name}</option>
                         ))}
                       </select>
@@ -716,7 +725,7 @@ const Calendar = () => {
                     <Trophy size={18} className="text-sky" />
                     <div>
                       <span className="detail-label">Categoría</span>
-                      <p>{selectedEvent.category ? categories.find(c => c.id === selectedEvent.category)?.name : 'General'}</p>
+                      <p>{selectedEvent.category ? categoriesList.find(c => c.id === selectedEvent.category)?.name : 'General'}</p>
                     </div>
                   </div>
                 </div>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../../data/AuthContext';
-import { playersByCategory } from '../../data/mockData';
+import { supabase } from '../../lib/supabase';
 import { Search, Trophy, Shield, Star, Zap, Target, Activity, MessageCircle, Heart, Medal, Flame } from 'lucide-react';
 import logo from '../../assets/logo.jpg';
 import jerseyImg from '../../images/camiseta-transparente.png';
@@ -34,14 +34,44 @@ const SkillBar = ({ label, value, icon: Icon, color }) => {
 const Stats = () => {
   const { user, isPlayer, isParent } = useAuth();
   
-  const [selectedCat, setSelectedCat] = useState(isPlayer || isParent ? (user.category || 'sub10') : 'sub12');
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const allPlayers = playersByCategory[selectedCat] || [];
-  
+  const [categoriesList, setCategoriesList] = useState([]);
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase.from('categories').select('*').order('name');
+      if (data) setCategoriesList(data);
+    };
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('category_id', selectedCat)
+        .eq('role', 'player');
+      
+      if (data) {
+        const adapted = data.map(p => ({
+          ...p,
+          name: p.full_name,
+          image: p.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${p.full_name}`
+        }));
+        setPlayers(adapted);
+        if (adapted.length > 0) setSelectedPlayer(adapted[0]);
+      }
+      setLoading(false);
+    };
+    fetchPlayers();
+  }, [selectedCat]);
+
   const filteredPlayers = (isPlayer || isParent) 
-    ? allPlayers.filter(p => p.name.includes(user.name.split(' ')[0]))
-    : allPlayers.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    ? players.filter(p => p.name.includes(user.name.split(' ')[0]))
+    : players.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
     
   const [selectedPlayer, setSelectedPlayer] = useState(filteredPlayers[0] || allPlayers[0] || null);
 
@@ -75,8 +105,8 @@ const Stats = () => {
           <h2 className="kid-sidebar-title">Equipos ⚽</h2>
           
           <div className="kid-filters">
-            <select value={selectedCat} onChange={e => { setSelectedCat(e.target.value); setSelectedPlayer(playersByCategory[e.target.value]?.[0] || null); }}>
-              {Object.keys(playersByCategory).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}
+            <select value={selectedCat} onChange={e => setSelectedCat(e.target.value)}>
+              {categoriesList.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
             </select>
             
             <div className="kid-search-box">

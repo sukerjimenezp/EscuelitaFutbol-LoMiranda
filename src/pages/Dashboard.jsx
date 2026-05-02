@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../data/AuthContext';
 import { supabase } from '../lib/supabase';
-import { playersByCategory, events, finances } from '../data/mockData';
+import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { 
   Users, 
   Calendar as CalendarIcon, 
@@ -44,11 +45,57 @@ const validateRUT = (rut) => {
 
 const Dashboard = () => {
   const { user } = useAuth();
-  
-  // Lógica de datos para los widgets
-  const myPlayers = playersByCategory[user?.category] || [];
-  const nextEvent = events.find(e => e.type === 'match') || events[0];
-  const monthsIncome = finances.filter(f => f.type === 'income').reduce((s, f) => s + f.amount, 0);
+  const [stats, setStats] = useState({
+    totalPlayers: 0,
+    totalCategories: 0,
+    monthlyIncome: 0,
+    myPlantilla: 0,
+    nextEvent: null
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      try {
+        const currentDate = new Date();
+        const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
+
+        const [
+          { count: playersCount },
+          { count: catsCount },
+          { data: paymentsData },
+          { count: myPlantillaCount },
+          { data: eventsData }
+        ] = await Promise.all([
+          supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'player').neq('is_active', false),
+          supabase.from('categories').select('*', { count: 'exact', head: true }),
+          supabase.from('payments').select('amount').eq('type', 'income').gte('date', firstDayOfMonth),
+          user?.category ? supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('category_id', user.category).eq('role', 'player').neq('is_active', false) : Promise.resolve({ count: 0 }),
+          supabase.from('events').select('*').gte('date', currentDate.toISOString().split('T')[0]).order('date').limit(1)
+        ]);
+
+        const monthlyIncome = (paymentsData || []).reduce((sum, p) => sum + p.amount, 0);
+
+        setStats({
+          totalPlayers: playersCount || 0,
+          totalCategories: catsCount || 0,
+          monthlyIncome,
+          myPlantilla: myPlantillaCount || 0,
+          nextEvent: (eventsData && eventsData[0]) || null
+        });
+      } catch (err) {
+        console.error('Error fetching dashboard stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user]);
+
+  const nextEvent = stats.nextEvent;
+  const monthsIncome = stats.monthlyIncome;
 
   // Widget de estadísticas rápidas
   const renderStats = () => {
@@ -56,17 +103,17 @@ const Dashboard = () => {
       case 'superadmin':
         return (
           <>
-            <StatCard icon={<Users />} label="Jugadores Totales" value="45" color="sky" />
-            <StatCard icon={<Trophy />} label="Categorías" value="7" color="green" />
-            <StatCard icon={<TrendingUp />} label="Ingresos Marzo" value={`$${monthsIncome.toLocaleString()}`} color="yellow" />
+            <StatCard icon={<Users />} label="Jugadores Totales" value={loading ? '...' : stats.totalPlayers} color="sky" />
+            <StatCard icon={<Trophy />} label="Categorías" value={loading ? '...' : stats.totalCategories} color="green" />
+            <StatCard icon={<TrendingUp />} label="Ingresos Mes" value={loading ? '...' : `$${stats.monthlyIncome.toLocaleString()}`} color="yellow" />
           </>
         );
       case 'dt':
         return (
           <>
-            <StatCard icon={<Users />} label="Mi Plantilla" value={myPlayers.length} color="sky" />
+            <StatCard icon={<Users />} label="Mi Plantilla" value={loading ? '...' : stats.myPlantilla} color="sky" />
             <StatCard icon={<Activity />} label="Asistencia Media" value="85%" color="green" />
-            <StatCard icon={<CalendarIcon />} label="Entrenamientos" value="3/semana" color="yellow" />
+            <StatCard icon={<CalendarIcon />} label="Próxima Clase" value={nextEvent ? format(parseISO(nextEvent.date), 'dd MMM', { locale: es }) : 'No agendada'} color="yellow" />
           </>
         );
       default:

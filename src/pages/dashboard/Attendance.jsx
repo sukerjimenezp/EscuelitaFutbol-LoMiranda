@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../data/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { categories } from '../../data/mockData';
 import { 
   CheckCircle2, 
   XCircle, 
@@ -29,6 +28,7 @@ const Attendance = () => {
   const [attendanceData, setAttendanceData] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [categoriesList, setCategoriesList] = useState([]);
   
   // States for PDF Report
   const [showReportModal, setShowReportModal] = useState(false);
@@ -66,6 +66,14 @@ const Attendance = () => {
     setAttendanceData(mappedAttendance);
     setLoading(false);
   }, [selectedCategory]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase.from('categories').select('*').order('name');
+      if (data) setCategoriesList(data);
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     fetchAttendance();
@@ -137,7 +145,7 @@ const Attendance = () => {
         .eq('category_id', selectedCategory)
         .eq('role', 'player');
       
-      const catName = categories.find(c => c.id === selectedCategory)?.name || selectedCategory;
+      const catName = categoriesList.find(c => c.id === selectedCategory)?.name || selectedCategory;
 
       if (!catPlayers || catPlayers.length === 0) {
         showToast('No hay jugadores en esta categoría', 'error');
@@ -234,15 +242,15 @@ const Attendance = () => {
       <div className="filters-row glass mb-4" style={{ display: 'flex', justifyContent: 'space-between' }}>
         <div className="category-select">
           <Filter size={18} className="text-muted" />
-          <select 
-            value={selectedCategory} 
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            disabled={loading || saving}
-          >
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
-            ))}
-          </select>
+            <select 
+              value={selectedCategory} 
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              disabled={loading || saving}
+            >
+              {categoriesList.map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
         </div>
         <button 
           className="btn-secondary-outline export-report-btn" 
