@@ -56,6 +56,8 @@ const Players = () => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
+      .eq('category_id', selectedCategory)
+      .eq('role', 'player')
       .order('full_name');
     
     if (error) console.error('Error fetching players:', error);
@@ -326,7 +328,17 @@ const Players = () => {
     setEditingPlayerId(null);
     setFormError('');
     setNewPlayer({
-      full_name: '', dorsal: 10, position: 'DC', pace: 50, shooting: 50, passing: 50, dribbling: 50, defense: 50, physical: 50, birth_date: ''
+      full_name: '', 
+      dorsal: 10, 
+      position: 'DC', 
+      pace: 50, 
+      shooting: 50, 
+      passing: 50, 
+      dribbling: 50, 
+      defense: 50, 
+      physical: 50, 
+      birth_date: '',
+      category_id: selectedCategory // Pre-seleccionar la categoría actual
     });
     setParentOption('none');
     setSelectedParentId('');
