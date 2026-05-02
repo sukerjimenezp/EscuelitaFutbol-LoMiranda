@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -22,17 +22,59 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../data/AuthContext';
+import { supabase } from '../../lib/supabase';
+import { showToast } from '../Toast';
 import logo from '../../assets/logo.jpg';
 import './Sidebar.css';
 
 const Sidebar = ({ isMobileOpen, onClose }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { user, logout } = useAuth();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const { user, logout, updateUserAvatar } = useAuth();
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleAvatarClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setUploadingAvatar(true);
+      showToast('Subiendo foto...', 'info');
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `profiles/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      await updateUserAvatar(publicUrlData.publicUrl);
+      showToast('¡Foto de perfil actualizada!', 'success');
+    } catch (err) {
+      showToast('Error al actualizar la foto: ' + err.message, 'error');
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const menuByRole = {
@@ -119,8 +161,33 @@ const Sidebar = ({ isMobileOpen, onClose }) => {
         </button>
       </div>
 
-      <div className="sidebar-user glass">
-        <img src={user?.avatar_url || user?.avatar} alt={user?.name} className="user-avatar" />
+      <div className="sidebar-user glass" style={{ position: 'relative' }}>
+        <div 
+          className="user-avatar-container" 
+          onClick={handleAvatarClick}
+          style={{ 
+            cursor: 'pointer', 
+            position: 'relative',
+            opacity: uploadingAvatar ? 0.5 : 1
+          }}
+          title="Cambiar foto de perfil"
+        >
+          <img src={user?.avatar_url || user?.avatar} alt={user?.name} className="user-avatar" />
+          <div className="avatar-hover-overlay" style={{
+            position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: '0.2s'
+          }}>
+            <ImageIcon size={16} color="white" />
+          </div>
+        </div>
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          accept="image/*"
+          onChange={handleFileChange}
+        />
+        
         {!isCollapsed && (
           <div className="user-meta">
             <span className="user-name">{user?.name}</span>
