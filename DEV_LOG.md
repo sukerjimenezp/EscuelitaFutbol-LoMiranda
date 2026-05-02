@@ -2,6 +2,19 @@
 
 > **Nota para el desarrollador:** Este archivo sirve como un respaldo persistente de todo el trabajo realizado en el proyecto. Dado que trabajas en múltiples proyectos, puedes consultar este documento para recordar exactamente en qué quedamos, independientemente de si el historial del IDE se muestra correctamente o no.
 
+## 📅 [02 de Mayo, 2026] - Migración Final a Datos en Tiempo Real (Supabase)
+**Conversación de referencia:** `a20f2b63-ed3d-491a-b89f-85a1dc2262e9`
+
+### ✨ Funcionalidades Implementadas
+*   **Limpieza de Mock Data:** Se eliminó la dependencia de `mockData.js` en todos los módulos clave del Dashboard (**Estadísticas, Táctica, Jugadores, Asistencia, Calendario, Reportes**).
+*   **Categorías Dinámicas:** Todos los selectores de categorías ahora consumen datos directamente de la tabla `categories` en Supabase, permitiendo que los cambios en el nombre o color de los equipos sean inmediatos en todo el sistema.
+*   **Dashboard Estadístico:** Se implementó `fetchDashboardData` para calcular en tiempo real el total de jugadores, categorías e ingresos mensuales desde las tablas de la base de datos.
+*   **Pizarra Táctica Sincronizada:** La pizarra ahora carga los perfiles reales desde la tabla `profiles`, adaptando los datos para el sistema de *Drag & Drop*.
+*   **Reportes de Asistencia y Pagos:** Se actualizaron los generadores de PDF en `Reports.jsx` para consultar las tablas `attendance` y `payments`, eliminando los valores aleatorios y asegurando la integridad de los datos contables.
+
+### 🎨 Mejoras de Interfaz (UI/UX)
+*   **Buscador de Comprobantes:** Se añadió un nuevo segmento independiente en el menú lateral para la búsqueda y visualización de vouchers de pago/boletas adjuntas, permitiendo filtrar por nombre de jugador y fecha.
+
 ---
 
 ## 📅 [30 de Abril, 2026] - Sistema de Coordinación de Partidos y Calendario
