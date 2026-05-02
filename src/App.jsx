@@ -76,14 +76,19 @@ const ProtectedRoute = ({ allowedRoles }) => {
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return (
-      <div className="unauthorized-page glass">
-        <h1>Acceso Restringido</h1>
-        <p>Tu rol no tiene permisos para ver esta sección.</p>
-        <button className="btn-primary" onClick={() => window.history.back()}>Regresar</button>
-      </div>
-    );
+  if (allowedRoles) {
+    const userRole = (user?.role || '').toLowerCase();
+    const isAllowed = allowedRoles.some(role => role.toLowerCase() === userRole);
+    
+    if (!isAllowed) {
+      return (
+        <div className="unauthorized-page glass">
+          <h1>Acceso Restringido</h1>
+          <p>Tu rol ({userRole || 'sin rol'}) no tiene permisos para ver esta sección.</p>
+          <button className="btn-primary" onClick={() => window.history.back()}>Regresar</button>
+        </div>
+      );
+    }
   }
 
   return <DashboardLayout />;
