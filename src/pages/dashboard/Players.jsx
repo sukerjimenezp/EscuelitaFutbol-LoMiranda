@@ -275,12 +275,30 @@ const Players = () => {
         }
 
         // Importante: Guardamos el username temporal en la tabla profiles
-        console.log('[Registration] Insertando perfil en BD...');
+        console.log('[Registration] Insertando perfil en BD para:', playerToSave.full_name);
+        playerToSave.email = tempEmail;
         const generatedPin = Math.random().toString(36).substring(2, 8).toUpperCase();
         
         const { error } = await supabase
           .from('profiles')
-          .insert([{ id: newUserId, link_pin: generatedPin, ...playerToSave }]);
+          .insert([{ 
+            id: newUserId, 
+            link_pin: generatedPin,
+            full_name: playerToSave.full_name,
+            role: 'player',
+            category_id: playerToSave.category_id,
+            dorsal: playerToSave.dorsal,
+            position: playerToSave.position,
+            pace: playerToSave.pace,
+            shooting: playerToSave.shooting,
+            passing: playerToSave.passing,
+            dribbling: playerToSave.dribbling,
+            defense: playerToSave.defense,
+            physical: playerToSave.physical,
+            birth_date: playerToSave.birth_date,
+            email: tempEmail,
+            avatar_url: playerToSave.avatar_url
+          }]);
 
         if (error) {
           setFormError(error.message);
