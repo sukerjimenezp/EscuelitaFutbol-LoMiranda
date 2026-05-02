@@ -281,7 +281,7 @@ const Players = () => {
         
         const { error } = await supabase
           .from('profiles')
-          .insert([{ 
+          .upsert([{ 
             id: newUserId, 
             link_pin: generatedPin,
             full_name: playerToSave.full_name,
@@ -298,7 +298,7 @@ const Players = () => {
             birth_date: playerToSave.birth_date,
             email: tempEmail,
             avatar_url: playerToSave.avatar_url
-          }]);
+          }], { onConflict: 'id' });
 
         if (error) {
           setFormError(error.message);
