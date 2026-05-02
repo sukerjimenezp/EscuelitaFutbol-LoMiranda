@@ -1,6 +1,7 @@
 import React from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import { Users } from 'lucide-react';
 import './MiniPlayerCard.css';
 
 const MiniPlayerCard = ({ player, isOnPitch, position }) => {
@@ -31,13 +32,19 @@ const MiniPlayerCard = ({ player, isOnPitch, position }) => {
       style={{ ...style, ...pitchStyle }}
       {...listeners} 
       {...attributes}
-      className={`mini-player-card ${isOnPitch ? 'on-pitch' : 'on-bench'}`}
+      className={`mini-player-card ${isOnPitch ? 'on-pitch' : 'on-bench'} ${player.isBlank ? 'is-blank' : ''}`}
     >
       <div className="mini-card-header">
         <span className="mini-ovr">{player.overall}</span>
         <span className="mini-pos">{player.position}</span>
       </div>
-      <img src={player.image} alt={player.name} className="mini-avatar" />
+      {player.isBlank ? (
+        <div className="blank-silhouette">
+          <Users size={30} strokeWidth={1.5} />
+        </div>
+      ) : (
+        <img src={player.image} alt={player.name} className="mini-avatar" />
+      )}
       <div className="mini-name">{player.name.split(' ')[0]}</div>
     </div>
   );

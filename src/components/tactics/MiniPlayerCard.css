@@ -90,6 +90,23 @@
   font-size: 0.85rem;
 }
 
+.mini-player-card.is-blank {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  filter: grayscale(1) opacity(0.5);
+}
+
+.mini-player-card.is-blank:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--sky-400);
+  filter: grayscale(0) opacity(0.8);
+}
+
+.blank-silhouette {
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 5px;
+}
+
 @media (max-width: 768px) {
   .mini-player-card { width: 55px; height: 75px; padding: 6px 4px; }
   .mini-avatar { width: 30px; height: 30px; }

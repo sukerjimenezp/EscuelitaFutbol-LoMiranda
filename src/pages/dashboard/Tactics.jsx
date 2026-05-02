@@ -31,6 +31,15 @@ const Tactics = () => {
   const [deployedPlayers, setDeployedPlayers] = useState([]);
   const [activeId, setActiveId] = useState(null);
 
+  const BLANK_PLAYER = {
+    id: 'blank-', // Se completará con el index
+    name: 'DISPONIBLE',
+    overall: '??',
+    position: '---',
+    image: '/images/avatares/blank.png',
+    isBlank: true
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -50,20 +59,29 @@ const Tactics = () => {
     // Si no hay jugadores desplegados, tomamos los primeros 11 del banco
     let basePlayers = deployedPlayers.length > 0 ? [...deployedPlayers] : players.slice(0, 11);
     
-    // Si tenemos menos de 11, completamos con los que falten de la lista
+    // Si tenemos menos de 11, completamos con los que falten de la lista real
     if (basePlayers.length < 11) {
       const extraNeeded = 11 - basePlayers.length;
       const available = players.filter(p => !basePlayers.find(bp => bp.id === p.id));
       basePlayers = [...basePlayers, ...available.slice(0, extraNeeded)];
     }
 
-    const updated = basePlayers.slice(0, 11).map((p, index) => ({
-      ...p,
-      x: coords[index].x,
-      y: coords[index].y
-    }));
+    // Si después de completar con reales todavía faltan, ponemos blancos
+    const finalPlayers = coords.map((coord, index) => {
+      const existingPlayer = basePlayers[index];
+      if (existingPlayer) {
+        return { ...existingPlayer, x: coord.x, y: coord.y };
+      } else {
+        return { 
+          ...BLANK_PLAYER, 
+          id: `blank-${index}`,
+          x: coord.x, 
+          y: coord.y 
+        };
+      }
+    });
 
-    setDeployedPlayers(updated);
+    setDeployedPlayers(finalPlayers);
     setFormation(name);
   };
 
@@ -114,14 +132,26 @@ const Tactics = () => {
           </div>
           <div className="header-actions">
             <div className="formation-selector glass">
+              <Users size={18} className="text-sky" />
+              <select value={selectedCategory} onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setDeployedPlayers([]); 
+              }}>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="formation-selector glass">
               <Layout size={18} className="text-sky" />
               <select value={formation} onChange={(e) => applyFormation(e.target.value)}>
+                <option value="" disabled>Seleccionar Formación</option>
                 {Object.keys(FORMATIONS).map(f => (
                   <option key={f} value={f}>{f} (Clásico)</option>
                 ))}
               </select>
             </div>
-            <button className="btn-outline" onClick={() => setDeployedPlayers([])}>
+            <button className="btn-secondary-outline" onClick={() => setDeployedPlayers([])}>
               <RefreshCw size={18} />
               Reiniciar
             </button>
