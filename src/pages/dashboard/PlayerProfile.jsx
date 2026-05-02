@@ -14,6 +14,8 @@ const PlayerProfile = () => {
   const { user, updateUserAvatar } = useAuth();
   const { skins, userSkins, purchaseSkin, loading: skinsLoading } = useSkins();
   const [purchasingId, setPurchasingId] = useState(null);
+  const [redemptions, setRedemptions] = useState([]);
+  const [loadingRedemptions, setLoadingRedemptions] = useState(true);
   
   // 1. Fetch Feedback from Supabase (instead of localStorage)
   const [feedback, setFeedback] = useState({
@@ -23,7 +25,6 @@ const PlayerProfile = () => {
     footer: '¡A seguir divirtiéndonos!'
   });
 
-  useEffect(() => {
     const fetchFeedback = async () => {
       if (user) {
         const { data } = await supabase
@@ -34,8 +35,38 @@ const PlayerProfile = () => {
         if (data) setFeedback(data);
       }
     };
+
+    const fetchRedemptions = async () => {
+      if (user) {
+        setLoadingRedemptions(true);
+        const { data } = await supabase
+          .from('user_skins')
+          .select('*, skins(*)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        if (data) setRedemptions(data);
+        setLoadingRedemptions(false);
+      }
+    };
+
     fetchFeedback();
+    fetchRedemptions();
   }, [user]);
+
+  const fetchRedemptions = async () => {
+    if (user) {
+      setLoadingRedemptions(true);
+      const { data } = await supabase
+        .from('user_skins')
+        .select('*, skins(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (data) setRedemptions(data);
+      setLoadingRedemptions(false);
+    }
+  };
 
   const handleEquipSkin = async (skinUrl) => {
     await updateUserAvatar(skinUrl);
@@ -48,6 +79,7 @@ const PlayerProfile = () => {
       const result = await purchaseSkin(skin.id, skin.cost);
       if (result.success) {
         alert('¡Compra exitosa! Ahora puedes equipar esta skin.');
+        fetchRedemptions(); // Refresh history
       } else {
         alert('Error: ' + result.error);
       }
@@ -191,6 +223,57 @@ const PlayerProfile = () => {
             })}
           </div>
         )}
+      </div>
+
+      {/* HISTORIAL DE CANJES */}
+      <div className="redemptions-history-section glass mb-8">
+        <div className="locker-header">
+          <h2><CheckCircle size={24} className="text-sky" /> Mis Canjes</h2>
+          <p>Historial de recompensas desbloqueadas con tus puntos.</p>
+        </div>
+
+        <div className="redemptions-list">
+          {loadingRedemptions ? (
+            <div className="loading-locker">Cargando historial...</div>
+          ) : redemptions.length > 0 ? (
+            <div className="redemptions-table-wrapper">
+              <table className="redemptions-table">
+                <thead>
+                  <tr>
+                    <th>Skin</th>
+                    <th>Costo</th>
+                    <th>Fecha de Canje</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {redemptions.map((red) => (
+                    <tr key={red.id}>
+                      <td className="red-skin-cell">
+                        <img src={red.skins?.image_url} alt="" className="red-mini-avatar" />
+                        <span>{red.skins?.name}</span>
+                      </td>
+                      <td>
+                        <div className="red-points">
+                          <Trophy size={14} className="text-yellow" />
+                          {red.skins?.cost}
+                        </div>
+                      </td>
+                      <td>{new Date(red.created_at).toLocaleDateString()}</td>
+                      <td><span className="status-unlocked">DESBLOQUEADO</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-redemptions">
+              <Zap size={48} className="text-muted" />
+              <p>Aún no has canjeado tus puntos por ninguna skin.</p>
+              <small>¡Entrena y participa para ganar puntos!</small>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -326,3 +326,99 @@
   z-index: 5;
   letter-spacing: 1px;
 }
+/* === HISTORIAL DE CANJES === */
+.redemptions-history-section {
+  margin-top: 40px;
+  padding: 30px;
+  border-radius: 24px;
+}
+
+.redemptions-table-wrapper {
+  overflow-x: auto;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.redemptions-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.redemptions-table th {
+  padding: 18px 24px;
+  background: rgba(15, 23, 42, 0.5);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+}
+
+.redemptions-table td {
+  padding: 16px 24px;
+  color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-weight: 500;
+}
+
+.redemptions-table tr:last-child td {
+  border-bottom: none;
+}
+
+.red-skin-cell {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.red-mini-avatar {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 4px;
+  object-fit: contain;
+}
+
+.red-points {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.status-unlocked {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.empty-redemptions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  gap: 15px;
+}
+
+.empty-redemptions p {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.mb-8 {
+  margin-bottom: 2rem;
+}
