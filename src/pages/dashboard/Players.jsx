@@ -244,31 +244,38 @@ const Players = () => {
         const tempEmail = `${rawUsername}@lomiranda.cl`;
         const tempPassword = rawUsername; // Contraseña default provisional
 
-        // Se usa adminAuthClient para que el DT no se cierre sesión.
+        // ── Auth: Creación de Cuenta Shadow de Paso ──
+        console.log('[Registration] Generando cuenta Auth para:', tempEmail);
         const { data: authData, error: authErr } = await adminAuthClient.auth.signUp({
           email: tempEmail,
           password: tempPassword,
+          options: {
+            data: { role: 'player' }
+          }
         });
 
         if (authErr) {
+          console.error('[Registration] Error en Auth:', authErr);
           if (authErr.message.includes('already registered') || authErr.message.includes('User already exists')) {
-             setFormError(`El usuario "${rawUsername}" ya existe. Añade un segundo nombre o apellido para diferenciarlo.`);
+             setFormError(`El usuario "${rawUsername}" ya existe. Prueba con otro nombre.`);
           } else {
-             setFormError('Autenticación Falló: ' + authErr.message);
+             setFormError('Error de Autenticación: ' + authErr.message + '. Revisa si tienes "Confirm Email" activado en Supabase.');
           }
           setSaving(false);
           return;
         }
 
         const newUserId = authData?.user?.id;
+        console.log('[Registration] Cuenta Auth creada, UUID:', newUserId);
+
         if (!newUserId) {
-          setFormError('Error interceptando la UUID del usuario nuevo.');
+          setFormError('No se pudo obtener la ID del usuario nuevo.');
           setSaving(false);
           return;
         }
 
-        // Importante: Guardamos el username temporal en la tabla profiles como email provisional (para que Login lo encuentre si lo busca en bd, o para que quede registro)
-        playerToSave.email = tempEmail;
+        // Importante: Guardamos el username temporal en la tabla profiles
+        console.log('[Registration] Insertando perfil en BD...');
         const generatedPin = Math.random().toString(36).substring(2, 8).toUpperCase();
         
         const { error } = await supabase
@@ -344,6 +351,7 @@ const Players = () => {
     }
 
     if (parentOption === 'new' && newParentName.trim()) {
+      console.log('[Registration] Creando apoderado nuevo:', newParentName);
       const parts = newParentName.trim().split(' ');
       const initial = parts[0].charAt(0).toLowerCase();
       const lastname = parts.length > 1
@@ -352,12 +360,15 @@ const Players = () => {
       const parentUsername = `${initial}${lastname}`;
       const parentTempEmail = `${parentUsername}@lomiranda.cl`;
 
+      console.log('[Registration] Generando cuenta Auth para apoderado:', parentTempEmail);
       const { data: pAuth, error: pAuthErr } = await adminAuthClient.auth.signUp({
         email: parentTempEmail,
         password: parentUsername,
+        options: { data: { role: 'parent' } }
       });
 
       if (pAuthErr) {
+        console.error('[Registration] Error Auth apoderado:', pAuthErr);
         if (pAuthErr.message.includes('already registered') || pAuthErr.message.includes('User already exists')) {
           throw new Error(`Usuario "${parentUsername}" ya existe. Use nombre más específico.`);
         }
@@ -365,6 +376,7 @@ const Players = () => {
       }
 
       const parentId = pAuth?.user?.id;
+      console.log('[Registration] Apoderado Auth creado, UUID:', parentId);
       if (!parentId) throw new Error('Error creando cuenta del apoderado.');
 
       const { error: profErr } = await supabase.from('profiles').insert([{
