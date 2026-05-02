@@ -100,17 +100,27 @@ const Players = () => {
   }, [newPlayer]);
 
   const handleInputChange = (field, value) => {
-    setNewPlayer(prev => ({ 
-      ...prev, 
-      [field]: field === 'full_name' || field === 'position' || field === 'category_id' ? value : (parseInt(value) || 0)
-    }));
+    setNewPlayer(prev => {
+      const updated = { 
+        ...prev, 
+        [field]: ['full_name', 'position', 'category_id', 'birth_date', 'avatar_url', 'email'].includes(field) 
+          ? value 
+          : (parseInt(value) || 0)
+      };
+
+      // Si cambia la fecha de nacimiento, sugerimos una categoría automáticamente
+      if (field === 'birth_date' && value) {
+        updated.category_id = getCategoryByAge(value);
+      }
+
+      return updated;
+    });
   };
 
   const handleEditClick = async (player) => {
     setEditingPlayerId(player.id);
     setNewPlayer({
-      ...player,
-      category_id: selectedCategory
+      ...player
     });
     await fetchParents();
     if (player.parent_id) {
@@ -166,7 +176,7 @@ const Players = () => {
         defense: newPlayer.defense,
         physical: newPlayer.physical,
         birth_date: newPlayer.birth_date || null,
-        category_id: newPlayer.birth_date ? getCategoryByAge(newPlayer.birth_date) || newPlayer.category_id : newPlayer.category_id,
+        category_id: newPlayer.category_id,
         role: 'player',
         avatar_url: newPlayer.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${newPlayer.full_name}`,
         email: newPlayer.email || `${newPlayer.full_name.replace(/\s/g, '').toLowerCase()}@escuela.cl`
