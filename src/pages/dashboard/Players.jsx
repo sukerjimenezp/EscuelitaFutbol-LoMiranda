@@ -336,8 +336,9 @@ const Players = () => {
       }
     } catch (err) {
       console.error('Error en handleSave:', err);
-      setFormError('Error inesperado: ' + err.message);
+      setFormError('Error inesperado: ' + err.message + '. Intenta refrescar la página.');
     } finally {
+      console.log('[Registration] Finalizando proceso de guardado.');
       setSaving(false);
     }
   };
