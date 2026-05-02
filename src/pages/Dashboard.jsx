@@ -70,7 +70,7 @@ const Dashboard = () => {
         ] = await Promise.all([
           supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'player').neq('is_active', false),
           supabase.from('categories').select('*', { count: 'exact', head: true }),
-          supabase.from('payments').select('amount').eq('type', 'income').gte('date', firstDayOfMonth),
+          supabase.from('payments').select('amount').eq('type', 'income'),
           user?.category_id ? supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('category_id', user.category_id).eq('role', 'player').neq('is_active', false) : Promise.resolve({ count: 0 }),
           supabase.from('events').select('*').gte('date', currentDate.toISOString().split('T')[0]).order('date').limit(1)
         ]);
