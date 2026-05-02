@@ -18,7 +18,9 @@ import {
   Download, 
   Plus, 
   FileText,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Edit,
+  Image as ImageIcon
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import jsPDF from 'jspdf';
@@ -35,13 +37,7 @@ const Finance = () => {
   const [financeList, setFinanceList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [newMovement, setNewMovement] = useState({
-    description: '',
-    amount: '',
-    type: 'income',
-    date: new Date().toISOString().split('T')[0]
-  });
+  const [editingMovement, setEditingMovement] = useState(null);
 
   const fetchFinances = async () => {
     setLoading(true);
@@ -111,73 +107,92 @@ const Finance = () => {
     "Verificar que todos los apoderados estén al día con la cuota con un recordatorio."
   ];
 
-  // Función para exportar a PDF
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    
-    // Logo y Título
-    doc.addImage(logo, 'JPEG', 14, 10, 20, 20); // Logo en la esquina superior izquierda
-    
-    doc.setFontSize(18);
-    doc.setTextColor(11, 42, 94); // Blue 900
-    doc.text('REPORTE FINANCIERO - LO MIRANDA FC', 40, 20);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Fecha de generación: ${new Date().toLocaleDateString()}`, 40, 28);
-    
-    // Resumen
-    doc.setFontSize(14);
-    doc.setTextColor(0);
-    doc.text('Resumen de Caja:', 14, 45);
-    doc.text(`Total Ingresos: $${totals.income.toLocaleString()}`, 14, 55);
-    doc.text(`Total Egresos: $${totals.expense.toLocaleString()}`, 14, 65);
-    doc.text(`Balance Neto: $${totals.balance.toLocaleString()}`, 14, 75);
-
-    // Tabla de movimientos
-    const tableData = financeList.map(f => [
+  // Función para exportar a Excel (CSV)
+  const exportExcel = () => {
+    const headers = ['Fecha', 'Descripción', 'Tipo', 'Monto'];
+    const rows = financeList.map(f => [
       f.date,
-      f.description,
+      `"${f.description.replace(/"/g, '""')}"`,
       f.type === 'income' ? 'Ingreso' : 'Egreso',
-      `$${f.amount.toLocaleString()}`
+      f.amount
     ]);
-
-    doc.autoTable({
-      startY: 85,
-      head: [['Fecha', 'Descripción', 'Tipo', 'Monto']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillStyle: [11, 42, 94] }
-    });
-
-    doc.save(`reporte_financiero_${new Date().getMonth() + 1}_2026.pdf`);
+    
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `reporte_financiero_${new Date().getMonth() + 1}_2026.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleSaveMovement = async () => {
-    if (!newMovement.description || !newMovement.amount) {
+  const handleSaveMovement = async (movData, file, setSavingCallback) => {
+    if (!movData.description || !movData.amount) {
        showToast('Completa los campos.', 'error');
        return;
     }
     
-    setSaving(true);
+    setSavingCallback(true);
+    let finalVoucherUrl = movData.voucher_url;
+
+    // Subir archivo a Supabase Storage si se seleccionó uno
+    if (file) {
+      showToast('Subiendo archivo...', 'info');
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `receipts/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('vouchers')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        showToast('Error al subir el archivo: ' + uploadError.message, 'error');
+        setSavingCallback(false);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('vouchers')
+        .getPublicUrl(filePath);
+
+      finalVoucherUrl = publicUrlData.publicUrl;
+    }
+
     const mov = {
-      description: newMovement.description,
-      amount: parseFloat(newMovement.amount),
-      type: newMovement.type,
-      date: newMovement.date
+      description: movData.description,
+      amount: parseFloat(movData.amount),
+      type: movData.type,
+      date: movData.date,
+      voucher_url: finalVoucherUrl
     };
 
-    const { error } = await supabase.from('payments').insert([mov]);
-    
-    if (error) {
-       showToast('Error al guardar movimiento: ' + error.message, 'error');
-    } else {
-       showToast('Movimiento registrado correctamente', 'success');
-       fetchFinances();
-       setShowModal(false);
-       setNewMovement({ ...newMovement, description: '', amount: '' });
+    // Actualización Optimista: Cerramos el modal de inmediato
+    setShowModal(false);
+
+    try {
+      if (movData.id) {
+         // Modo Edición: Actualizar registro existente
+         const { error } = await supabase.from('payments').update(mov).eq('id', movData.id);
+         if (error) throw error;
+         showToast('Movimiento actualizado', 'success');
+      } else {
+         // Modo Creación: Insertar nuevo registro
+         const optimisticMov = { ...mov, id: 'temp-' + Date.now() };
+         setFinanceList(prev => [optimisticMov, ...prev]);
+         const { error } = await supabase.from('payments').insert([mov]);
+         if (error) throw error;
+         showToast('Movimiento registrado', 'success');
+      }
+      
+      fetchFinances(); // Sincronizamos con la base de datos
+    } catch (e) {
+      showToast('Error de red al guardar: ' + e.message, 'error');
+      fetchFinances(); // Revertimos
     }
-    setSaving(false);
   };
 
   return (
@@ -188,11 +203,11 @@ const Finance = () => {
           <p className="dash-subtitle">Visualiza el rendimiento económico y exporta reportes contables.</p>
         </div>
         <div className="header-actions">
-          <button className="btn-outline" onClick={exportPDF}>
+          <button className="btn-outline" onClick={exportExcel}>
             <Download size={18} />
-            Exportar PDF
+            Exportar Excel
           </button>
-          <button className="btn-primary" onClick={() => setShowModal(true)}>
+          <button className="btn-primary" onClick={() => { setEditingMovement(null); setShowModal(true); }}>
             <Plus size={18} />
             Nuevo Movimiento
           </button>
@@ -204,21 +219,21 @@ const Finance = () => {
           <div className="f-card-icon"><TrendingUp size={24} /></div>
           <div className="f-card-content">
             <span className="label">Total Ingresos</span>
-            <span className="value">${totals.income.toLocaleString()}</span>
+            <span className="value">${totals.income.toLocaleString('es-CL')}</span>
           </div>
         </div>
         <div className="finance-card glass expense">
           <div className="f-card-icon"><TrendingDown size={24} /></div>
           <div className="f-card-content">
             <span className="label">Total Egresos</span>
-            <span className="value">${totals.expense.toLocaleString()}</span>
+            <span className="value">${totals.expense.toLocaleString('es-CL')}</span>
           </div>
         </div>
         <div className="finance-card glass balance">
           <div className="f-card-icon"><Wallet size={24} /></div>
           <div className="f-card-content">
             <span className="label">Balance Neto</span>
-            <span className="value">${totals.balance.toLocaleString()}</span>
+            <span className="value">${totals.balance.toLocaleString('es-CL')}</span>
           </div>
         </div>
       </div>
@@ -233,7 +248,7 @@ const Finance = () => {
             
             {monthlyStats.diff !== 0 && (
               <div className={`compare-badge ${monthlyStats.diff > 0 ? 'positive' : 'negative'}`}>
-                {monthlyStats.diff > 0 ? '▲' : '▼'} vs {prevMonthName}: ${Math.abs(monthlyStats.diff).toLocaleString()}
+                {monthlyStats.diff > 0 ? '▲' : '▼'} vs {prevMonthName}: ${Math.abs(monthlyStats.diff).toLocaleString('es-CL')}
               </div>
             )}
           </div>
@@ -258,7 +273,7 @@ const Finance = () => {
                 <Tooltip 
                   cursor={{ fill: 'rgba(255,255,255,0.05)' }} 
                   contentStyle={{ background: '#0c1e3d', border: '1px solid rgba(56,189,248,0.2)', borderRadius: '10px', color: 'white' }} 
-                  formatter={(value) => `$${value.toLocaleString()}`}
+                  formatter={(value) => `$${value.toLocaleString('es-CL')}`}
                 />
                 <Bar dataKey="amount" radius={[8, 8, 0, 0]} minPointSize={8}>
                   {chartData.map((entry, index) => (
@@ -295,13 +310,24 @@ const Finance = () => {
                 <div className={`t-icon ${item.type}`}>
                   {item.type === 'income' ? <Plus size={16} /> : <div className="minus-sign"></div>}
                 </div>
-                <div className="t-info">
+                <div className="t-info" style={{ flex: 1 }}>
                   <span className="t-desc">{item.description}</span>
                   <span className="t-date">{item.date}</span>
                 </div>
-                <span className={`t-amount ${item.type}`}>
-                  {item.type === 'income' ? '+' : '-'}${item.amount.toLocaleString()}
+                <span className={`t-amount ${item.type}`} style={{ marginRight: '15px' }}>
+                  {item.type === 'income' ? '+' : '-'}${item.amount.toLocaleString('es-CL')}
                 </span>
+                
+                <div className="t-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  {item.voucher_url && (
+                    <a href={item.voucher_url} target="_blank" rel="noreferrer" title="Ver Comprobante" style={{ color: 'var(--sky-400)', cursor: 'pointer', display: 'flex' }}>
+                      <ImageIcon size={18} />
+                    </a>
+                  )}
+                  <button onClick={() => { setEditingMovement(item); setShowModal(true); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }} title="Editar Movimiento">
+                    <Edit size={18} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -311,79 +337,118 @@ const Finance = () => {
       {/* Modal de Nuevo Movimiento */}
       <AnimatePresence>
         {showModal && (
-          <div className="modal-overlay" onClick={() => setShowModal(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-            <motion.div 
-              className="event-modal glass" 
-              onClick={e => e.stopPropagation()}
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              style={{ width: '500px', padding: '40px', background: 'var(--bg-surface)', borderRadius: '24px' }}
-            >
-              <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Nuevo <span className="text-sky">Movimiento</span></h2>
-                <button onClick={() => setShowModal(false)} style={{ background: 'transparent', color: 'white', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>X</button>
-              </div>
-
-              <div className="event-form" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Descripción</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ej: Pago arbitraje, Cuota Juan, etc."
-                    value={newMovement.description}
-                    onChange={e => setNewMovement({ ...newMovement, description: e.target.value })}
-                    style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px' }}
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Monto ($)</label>
-                    <input 
-                      type="number" 
-                      placeholder="5000"
-                      value={newMovement.amount}
-                      onChange={e => setNewMovement({ ...newMovement, amount: e.target.value })}
-                      style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px' }}
-                    />
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Fecha</label>
-                    <input 
-                      type="date"
-                      value={newMovement.date}
-                      onChange={e => setNewMovement({ ...newMovement, date: e.target.value })}
-                      style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px' }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Tipo de Movimiento</label>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button 
-                      onClick={() => setNewMovement({ ...newMovement, type: 'income' })}
-                      style={{ flex: 1, padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', border: newMovement.type === 'income' ? '2px solid #22c55e' : '1px solid rgba(255,255,255,0.1)', background: newMovement.type === 'income' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.05)', color: newMovement.type === 'income' ? '#22c55e' : 'white' }}
-                    >Ingreso (+)</button>
-                    <button 
-                      onClick={() => setNewMovement({ ...newMovement, type: 'expense' })}
-                      style={{ flex: 1, padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', border: newMovement.type === 'expense' ? '2px solid #ef4444' : '1px solid rgba(255,255,255,0.1)', background: newMovement.type === 'expense' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.05)', color: newMovement.type === 'expense' ? '#ef4444' : 'white' }}
-                    >Egreso (-)</button>
-                  </div>
-                </div>
-
-                <button 
-                  onClick={handleSaveMovement}
-                  disabled={saving}
-                  style={{ marginTop: '15px', padding: '15px', background: 'var(--sky-400)', color: 'white', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none', opacity: saving ? 0.7 : 1 }}
-                >{saving ? 'Guardando...' : 'Guardar Movimiento'}</button>
-              </div>
-            </motion.div>
-          </div>
+          <MovementModal 
+            onClose={() => setShowModal(false)} 
+            onSave={handleSaveMovement} 
+            initialData={editingMovement}
+          />
         )}
       </AnimatePresence>
+    </div>
+  );
+};
+
+// Componente separado para el Modal (Evita re-renderizado de gráficos al escribir)
+const MovementModal = ({ onClose, onSave, initialData }) => {
+  const [saving, setSaving] = useState(false);
+  const [file, setFile] = useState(null);
+  const [newMovement, setNewMovement] = useState({
+    id: initialData?.id || null,
+    description: initialData?.description || '',
+    amount: initialData?.amount || '',
+    type: initialData?.type || 'income',
+    date: initialData?.date || new Date().toISOString().split('T')[0],
+    voucher_url: initialData?.voucher_url || null
+  });
+
+  return (
+    <div className="modal-overlay" onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+      <motion.div 
+        className="event-modal glass" 
+        onClick={e => e.stopPropagation()}
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        style={{ width: '500px', padding: '40px', background: 'var(--bg-surface)', borderRadius: '24px' }}
+      >
+        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>
+            {initialData ? 'Editar' : 'Nuevo'} <span className="text-sky">Movimiento</span>
+          </h2>
+          <button onClick={onClose} style={{ background: 'transparent', color: 'white', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>X</button>
+        </div>
+
+        <div className="event-form" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Descripción</label>
+            <input 
+              type="text" 
+              placeholder="Ej: Pago arbitraje, Cuota Juan, etc."
+              value={newMovement.description}
+              onChange={e => setNewMovement({ ...newMovement, description: e.target.value })}
+              style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px' }}
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Monto ($)</label>
+              <input 
+                type="number" 
+                placeholder="5000"
+                value={newMovement.amount}
+                onChange={e => setNewMovement({ ...newMovement, amount: e.target.value })}
+                style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px' }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Fecha</label>
+              <input 
+                type="date"
+                value={newMovement.date}
+                onChange={e => setNewMovement({ ...newMovement, date: e.target.value })}
+                style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Tipo de Movimiento</label>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => setNewMovement({ ...newMovement, type: 'income' })}
+                style={{ flex: 1, padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', border: newMovement.type === 'income' ? '2px solid #22c55e' : '1px solid rgba(255,255,255,0.1)', background: newMovement.type === 'income' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.05)', color: newMovement.type === 'income' ? '#22c55e' : 'white' }}
+              >Ingreso (+)</button>
+              <button 
+                onClick={() => setNewMovement({ ...newMovement, type: 'expense' })}
+                style={{ flex: 1, padding: '12px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', border: newMovement.type === 'expense' ? '2px solid #ef4444' : '1px solid rgba(255,255,255,0.1)', background: newMovement.type === 'expense' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.05)', color: newMovement.type === 'expense' ? '#ef4444' : 'white' }}
+              >Egreso (-)</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '15px', marginTop: '5px' }}>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Comprobante (Opcional)</label>
+            <input 
+              type="file" 
+              accept="image/*,application/pdf" 
+              onChange={e => setFile(e.target.files[0])}
+              style={{ padding: '10px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', color: 'white', cursor: 'pointer' }}
+            />
+            {newMovement.voucher_url && !file && (
+              <a href={newMovement.voucher_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--sky-400)', textDecoration: 'none' }}>
+                📎 Ver comprobante actual
+              </a>
+            )}
+          </div>
+
+          <button 
+            onClick={() => onSave(newMovement, file, setSaving)}
+            disabled={saving}
+            style={{ marginTop: '15px', padding: '15px', background: 'var(--sky-400)', color: 'white', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', border: 'none', opacity: saving ? 0.7 : 1 }}
+          >{saving ? 'Guardando...' : 'Guardar Movimiento'}</button>
+        </div>
+      </motion.div>
     </div>
   );
 };

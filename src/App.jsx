@@ -27,6 +27,7 @@ const CategoriesDash  = lazy(() => import('./pages/dashboard/CategoriesDash'));
 const Attendance      = lazy(() => import('./pages/dashboard/Attendance'));
 const Tactics         = lazy(() => import('./pages/dashboard/Tactics'));
 const Finance         = lazy(() => import('./pages/dashboard/Finance'));
+const Vouchers        = lazy(() => import('./pages/dashboard/Vouchers'));
 const Calendar        = lazy(() => import('./pages/dashboard/Calendar'));
 const Reports         = lazy(() => import('./pages/dashboard/Reports'));
 const Stats           = lazy(() => import('./pages/dashboard/Stats'));
@@ -120,6 +121,7 @@ function App() {
 
                   {/* Financiero */}
                   <Route path="/dashboard/finanzas"        element={<Finance />} />
+                  <Route path="/dashboard/vouchers"        element={<Vouchers />} />
                   <Route path="/dashboard/pagos"           element={<Finance />} />
                   <Route path="/dashboard/calendario"      element={<Calendar />} />
                   <Route path="/dashboard/reportes"        element={<Reports />} />

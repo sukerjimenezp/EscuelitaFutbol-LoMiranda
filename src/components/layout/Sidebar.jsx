@@ -47,6 +47,7 @@ const Sidebar = ({ isMobileOpen, onClose }) => {
       { path: '/dashboard/el-profe-dice', icon: MessageSquare, label: 'El Profe Dice' },
       { path: '/dashboard/streaming-config', icon: Radio, label: 'En Vivo (Config)' },
       { path: '/dashboard/finanzas', icon: Wallet, label: 'Finanzas' },
+      { path: '/dashboard/vouchers', icon: ImageIcon, label: 'Comprobantes' },
       { path: '/dashboard/calendario', icon: Calendar, label: 'Calendario' },
       { path: '/dashboard/reportes', icon: FileText, label: 'Reportes' },
       { path: '/dashboard/stats', icon: Target, label: 'Estadísticas' },
@@ -66,6 +67,7 @@ const Sidebar = ({ isMobileOpen, onClose }) => {
     contador: [
       { path: '/dashboard', icon: LayoutDashboard, label: 'Consolidado' },
       { path: '/dashboard/finanzas', icon: Wallet, label: 'Contabilidad' },
+      { path: '/dashboard/vouchers', icon: ImageIcon, label: 'Comprobantes' },
       { path: '/dashboard/reportes', icon: FileText, label: 'Reportes PDF' },
     ],
     parent: [
