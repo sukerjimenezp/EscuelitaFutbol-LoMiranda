@@ -76,22 +76,15 @@ const ProtectedRoute = ({ allowedRoles }) => {
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  if (allowedRoles) {
-    const userRole = (user?.role || '').toLowerCase();
-    const isAllowed = allowedRoles.some(role => role.toLowerCase() === userRole);
-    
-    if (!isAllowed) {
-      return (
-        <div className="unauthorized-page glass">
-          <h1>Acceso Restringido</h1>
-          <p>Tu rol ({userRole || 'sin rol'}) no tiene permisos para ver esta sección.</p>
-          <button className="btn-primary" onClick={() => window.history.back()}>Regresar</button>
-        </div>
-      );
-    }
-  }
-
-  return <DashboardLayout />;
+  // TEMPORAL: Puerta abierta para recuperación
+  return (
+    <>
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, background: '#ef4444', color: 'white', fontSize: '10px', padding: '2px 10px', zIndex: 9999, textAlign: 'center' }}>
+        MODO RECUPERACIÓN: Usuario: {user?.email} | Rol detectado: {user?.role || 'NINGUNO'}
+      </div>
+      <DashboardLayout />
+    </>
+  );
 };
 
 function App() {
