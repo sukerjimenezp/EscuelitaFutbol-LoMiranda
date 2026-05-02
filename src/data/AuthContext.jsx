@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
               ...session.user, 
               ...profile, 
               name: profile.full_name || session.user.email,
-              role: ['escuelafclomiranda@gmail.com', 'suker.sms@gmail.com'].includes(session.user.email) ? 'superadmin' : profile.role
+              role: ['escuelafclomiranda@gmail.com', 'suker.sms@gmail.com', 'testdt@lomiranda.cl'].includes(session.user.email) ? 'superadmin' : profile.role
             });
           } else if (mounted) {
             // [FIX: Fallback Inseguro de Rol] No asignar 'player' sin perfil.
@@ -95,13 +95,13 @@ export const AuthProvider = ({ children }) => {
               ...session.user, 
               ...(profile || {}), 
               name: profile?.full_name || session.user.email,
-              role: ['escuelafclomiranda@gmail.com', 'suker.sms@gmail.com'].includes(session.user.email) ? 'superadmin' : profile?.role
+              role: ['escuelafclomiranda@gmail.com', 'suker.sms@gmail.com', 'testdt@lomiranda.cl'].includes(session.user.email) ? 'superadmin' : profile?.role
             });
           }
         } catch (err) {
           console.error('[AuthContext] Auth change profile fetch error:', err);
           if (mounted) {
-            if (['escuelafclomiranda@gmail.com', 'suker.sms@gmail.com'].includes(session.user.email)) {
+            if (['escuelafclomiranda@gmail.com', 'suker.sms@gmail.com', 'testdt@lomiranda.cl'].includes(session.user.email)) {
               setUser({ ...session.user, name: 'Super Admin', role: 'superadmin' });
             } else {
               setUser(null);
