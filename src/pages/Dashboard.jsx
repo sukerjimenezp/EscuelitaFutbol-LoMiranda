@@ -59,7 +59,7 @@ const Dashboard = () => {
       setLoading(true);
       try {
         const currentDate = new Date();
-        const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).toISOString();
+        const firstDayOfMonth = format(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), 'yyyy-MM-dd');
 
         const [
           { count: playersCount },
