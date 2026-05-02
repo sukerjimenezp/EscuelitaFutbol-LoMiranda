@@ -45,7 +45,7 @@ const MiniPlayerCard = ({ player, isOnPitch, position }) => {
       ) : (
         <img src={player.image} alt={player.name} className="mini-avatar" />
       )}
-      <div className="mini-name">{player.name.split(' ')[0]}</div>
+      <div className="mini-name">{player.name?.split(' ')[0] || '---'}</div>
     </div>
   );
 };

@@ -82,71 +82,37 @@
 
 .bench-players-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   overflow-y: auto;
   padding-right: 10px;
+  max-height: calc(100vh - 350px);
 }
 
-/* Custom Scrollbar for bench */
-.bench-players-grid::-webkit-scrollbar {
-  width: 5px;
+.bench-loading, .empty-bench-msg {
+  grid-column: span 2;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
 }
-.bench-players-grid::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+
+.bench-count {
+  margin-left: auto;
+  background: var(--sky-400);
+  color: var(--blue-900);
+  font-size: 0.7rem;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 20px;
 }
 
 .bench-player-card {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 10px;
-  border-radius: 12px;
-  cursor: grab;
-  transition: all 0.2s;
-}
-
-.bench-player-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-  transform: translateX(5px);
-  border-color: var(--sky-400);
-}
-
-.bench-player-card img {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.player-meta {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.player-ovr {
-  position: absolute;
-  top: 5px;
-  right: 10px;
-  font-family: 'Outfit', sans-serif;
-  font-weight: 900;
-  font-size: 0.75rem;
-  color: var(--sky-400);
-}
-
-.player-name {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: white;
-}
-
-.player-pos-tag {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  /* Estas clases ya no se usan directamente si usamos MiniPlayerCard, 
+     pero mantengo el contenedor si fuera necesario */
 }
 
 /* Botones Premium */

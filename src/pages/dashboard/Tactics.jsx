@@ -8,8 +8,10 @@ import {
   defaultDropAnimationSideEffects
 } from '@dnd-kit/core';
 import { useAuth } from '../../data/AuthContext';
-import { playersByCategory, categories } from '../../data/mockData';
+import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '../../lib/supabase';
 import { FORMATIONS } from '../../data/formations';
+import { categories } from '../../data/mockData';
 import SoccerPitch from '../../components/tactics/SoccerPitch';
 import MiniPlayerCard from '../../components/tactics/MiniPlayerCard';
 import { 
@@ -21,7 +23,6 @@ import {
   Maximize2,
   MousePointer2
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import './Tactics.css';
 
 const Tactics = () => {
@@ -48,7 +49,35 @@ const Tactics = () => {
     })
   );
 
-  const players = playersByCategory[selectedCategory] || [];
+  const [players, setPlayers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPlayers = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('category_id', selectedCategory)
+        .eq('role', 'player')
+        .neq('is_active', false);
+      
+      if (!error && data) {
+        const adapted = data.map(p => ({
+          ...p,
+          name: p.full_name,
+          image: p.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${p.full_name}`
+        }));
+        setPlayers(adapted);
+      } else {
+        setPlayers([]);
+      }
+      setLoading(false);
+    };
+
+    fetchPlayers();
+  }, [selectedCategory]);
+
   const benchPlayers = players.filter(p => !deployedPlayers.find(dp => dp.id === p.id));
 
   // Función para aplicar una formación automáticamente
@@ -198,25 +227,40 @@ const Tactics = () => {
           <div className="bench-section glass">
             <div className="bench-header">
               <Users size={20} className="text-sky" />
-              <h3>Banco ({benchPlayers.length})</h3>
+              <h3>PLANTEL DISPONIBLE</h3>
+              <span className="bench-count">{benchPlayers.length}</span>
             </div>
+            
             <div className="bench-players-grid">
-              <AnimatePresence>
-                {benchPlayers.map(player => (
-                  <motion.div 
-                    key={player.id}
-                    layout
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                  >
-                    <MiniPlayerCard 
-                      player={player} 
-                      isOnPitch={false} 
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+              {loading ? (
+                <div className="bench-loading">
+                  <RefreshCw size={24} className="spin-icon text-sky" />
+                  <p>Cargando plantilla...</p>
+                </div>
+              ) : (
+                <AnimatePresence>
+                  {benchPlayers.map(player => (
+                    <motion.div 
+                      key={player.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.5 }}
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <MiniPlayerCard 
+                        player={player} 
+                        isOnPitch={false} 
+                      />
+                    </motion.div>
+                  ))}
+                  {benchPlayers.length === 0 && !loading && (
+                    <div className="empty-bench-msg">
+                      <p>Todos los jugadores están en el campo o no hay registros en esta categoría.</p>
+                    </div>
+                  )}
+                </AnimatePresence>
+              )}
             </div>
           </div>
         </div>
