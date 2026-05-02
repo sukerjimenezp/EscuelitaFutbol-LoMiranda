@@ -25,6 +25,7 @@ const PlayerProfile = () => {
     footer: '¡A seguir divirtiéndonos!'
   });
 
+  useEffect(() => {
     const fetchFeedback = async () => {
       if (user) {
         const { data } = await supabase
@@ -33,20 +34,6 @@ const PlayerProfile = () => {
           .eq('player_id', user.id)
           .single();
         if (data) setFeedback(data);
-      }
-    };
-
-    const fetchRedemptions = async () => {
-      if (user) {
-        setLoadingRedemptions(true);
-        const { data } = await supabase
-          .from('user_skins')
-          .select('*, skins(*)')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-        
-        if (data) setRedemptions(data);
-        setLoadingRedemptions(false);
       }
     };
 
