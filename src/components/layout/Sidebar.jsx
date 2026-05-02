@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../data/AuthContext';
+import { useSkins } from '../../data/SkinsContext';
 import { supabase } from '../../lib/supabase';
 import { showToast } from '../Toast';
 import logo from '../../assets/logo.jpg';
@@ -30,7 +31,10 @@ import './Sidebar.css';
 const Sidebar = ({ isMobileOpen, onClose }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  
   const { user, logout, updateUserAvatar } = useAuth();
+  const { skins } = useSkins();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
@@ -40,9 +44,7 @@ const Sidebar = ({ isMobileOpen, onClose }) => {
   };
 
   const handleAvatarClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+    setShowAvatarModal(true);
   };
 
   const handleFileChange = async (e) => {
@@ -216,6 +218,78 @@ const Sidebar = ({ isMobileOpen, onClose }) => {
           {!isCollapsed && <span className="nav-label">Cerrar Sesión</span>}
         </button>
       </div>
+
+      <AnimatePresence>
+        {showAvatarModal && (
+          <div className="modal-overlay" onClick={() => setShowAvatarModal(false)} style={{ zIndex: 100000, position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <motion.div 
+              className="modal-content glass" 
+              onClick={e => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              style={{ width: '500px', maxWidth: '90vw', padding: '30px', borderRadius: '24px', background: 'var(--bg-surface)' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Elige tu <span className="text-sky">Avatar</span></h2>
+                <button onClick={() => setShowAvatarModal(false)} style={{ background: 'transparent', color: 'white', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}><X size={20}/></button>
+              </div>
+              
+              {user?.role === 'player' ? (
+                 <div style={{ textAlign: 'center', padding: '30px 10px' }}>
+                   <Trophy size={40} className="text-yellow" style={{ marginBottom: '15px' }} />
+                   <h3>¡Armario Bloqueado!</h3>
+                   <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '10px 0 20px' }}>
+                     Como jugador, debes desbloquear tus skins y logos utilizando los puntos que ganes en tus entrenamientos.
+                   </p>
+                   <button className="btn-primary" onClick={() => { setShowAvatarModal(false); navigate('/dashboard'); }} style={{ width: '100%' }}>
+                     Ir a Mi Perfil
+                   </button>
+                 </div>
+              ) : (
+                 <>
+                   <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '15px' }}>Selecciona uno de los logos oficiales o skins del sistema:</p>
+                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '15px', maxHeight: '300px', overflowY: 'auto', padding: '10px 5px', alignItems: 'start' }}>
+                     {skins && skins.length > 0 ? skins.map(skin => (
+                       <div 
+                         key={skin.id}
+                         onClick={async () => {
+                           await updateUserAvatar(skin.image_url);
+                           showToast('Avatar actualizado', 'success');
+                           setShowAvatarModal(false);
+                         }}
+                         style={{ 
+                           aspectRatio: '1', 
+                           borderRadius: '15px', 
+                           overflow: 'hidden', 
+                           cursor: 'pointer', 
+                           border: user?.avatar_url === skin.image_url ? '3px solid var(--sky-400)' : '2px solid rgba(255,255,255,0.1)', 
+                           background: 'rgba(255,255,255,0.05)',
+                           transition: 'all 0.2s ease',
+                           transform: user?.avatar_url === skin.image_url ? 'scale(1.05)' : 'scale(1)'
+                         }}
+                         title={skin.name}
+                       >
+                         <img src={skin.image_url} alt={skin.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                       </div>
+                     )) : (
+                       <p style={{ color: 'var(--text-muted)' }}>No hay skins disponibles aún.</p>
+                     )}
+                   </div>
+                 </>
+              )}
+
+              <div style={{ marginTop: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
+                <button className="btn-secondary-outline" onClick={() => setShowAvatarModal(false)}>Cancelar</button>
+                <button className="btn-primary" onClick={() => { setShowAvatarModal(false); if(fileInputRef.current) fileInputRef.current.click(); }} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ImageIcon size={16} />
+                  {uploadingAvatar ? 'Subiendo...' : 'Subir desde PC'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.aside>
   );
 };
