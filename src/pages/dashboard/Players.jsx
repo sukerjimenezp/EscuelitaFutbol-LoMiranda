@@ -56,8 +56,6 @@ const Players = () => {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('category_id', selectedCategory)
-      .eq('role', 'player')
       .order('full_name');
     
     if (error) console.error('Error fetching players:', error);
