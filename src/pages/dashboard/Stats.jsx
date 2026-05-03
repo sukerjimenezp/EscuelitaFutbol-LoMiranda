@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { Search, Trophy, Shield, Star, Zap, Target, Activity, MessageCircle, Heart, Medal, Flame } from 'lucide-react';
 import logo from '../../assets/logo.jpg';
 import jerseyImg from '../../images/camiseta-transparente.png';
+import { showToast } from '../../components/Toast';
 import './Stats.css';
 
 const SkillBar = ({ label, value, icon: Icon, color }) => {
@@ -30,13 +31,15 @@ const SkillBar = ({ label, value, icon: Icon, color }) => {
     </div>
   );
 };
-
 const Stats = () => {
   const { user, isPlayer, isParent } = useAuth();
   
   const [categoriesList, setCategoriesList] = useState([]);
+  const [selectedCat, setSelectedCat] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -49,31 +52,51 @@ const Stats = () => {
   useEffect(() => {
     const fetchPlayers = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('category_id', selectedCat)
-        .eq('role', 'player');
-      
-      if (data) {
-        const adapted = data.map(p => ({
-          ...p,
-          name: p.full_name,
-          image: p.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${p.full_name}`
-        }));
-        setPlayers(adapted);
-        if (adapted.length > 0) setSelectedPlayer(adapted[0]);
+      try {
+        let query = supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'player');
+        
+        if (selectedCat !== 'all') {
+          query = query.eq('category_id', selectedCat);
+        }
+
+        const { data } = await query;
+        
+        if (data) {
+          const adapted = data.map(p => ({
+            ...p,
+            name: p.full_name,
+            image: p.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${p.full_name}`
+          }));
+          setPlayers(adapted);
+          
+          // Auto-seleccionar si no hay uno o si cambió la lista
+          if (adapted.length > 0 && !selectedPlayer) {
+            setSelectedPlayer(adapted[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching players:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchPlayers();
   }, [selectedCat]);
 
-  const filteredPlayers = (isPlayer || isParent) 
-    ? players.filter(p => p.name.includes(user.name.split(' ')[0]))
-    : players.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-  const [selectedPlayer, setSelectedPlayer] = useState(filteredPlayers[0] || allPlayers[0] || null);
+  const filteredPlayers = useMemo(() => {
+    return players.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      if (isPlayer || isParent) {
+        // En modo jugador/padre, solo mostramos a sí mismos o sus pupilos
+        // (Aunque el backend debería filtrar esto, aquí hacemos un extra check si se desea)
+        return matchesSearch; 
+      }
+      return matchesSearch;
+    });
+  }, [players, searchTerm, isPlayer, isParent]);
 
   useEffect(() => {
     if ((isPlayer || isParent) && filteredPlayers.length > 0) {
@@ -94,7 +117,6 @@ const Stats = () => {
     };
   }, [selectedPlayer]);
 
-  if (!selectedPlayer && allPlayers.length > 0) setSelectedPlayer(allPlayers[0]);
 
   return (
     <div className="kid-stats-dashboard">

@@ -23,6 +23,7 @@ const GalleryPublic = lazy(() => import('./pages/GalleryPublic'));
 // Dashboard pages — lazy loaded (these are the heavy ones)
 const Dashboard       = lazy(() => import('./pages/Dashboard'));
 const Players         = lazy(() => import('./pages/dashboard/Players'));
+const Parents         = lazy(() => import('./pages/dashboard/Parents'));
 const CategoriesDash  = lazy(() => import('./pages/dashboard/CategoriesDash'));
 const Attendance      = lazy(() => import('./pages/dashboard/Attendance'));
 const Tactics         = lazy(() => import('./pages/dashboard/Tactics'));
@@ -118,6 +119,7 @@ function App() {
 
                   {/* Administración */}
                   <Route path="/dashboard/usuarios"        element={<Players />} />
+                  <Route path="/dashboard/apoderados"      element={<Parents />} />
                   <Route path="/dashboard/perfiles"        element={<Profiles />} />
                   <Route path="/dashboard/categorias"      element={<CategoriesDash />} />
                   <Route path="/dashboard/asistencia"      element={<Attendance />} />
@@ -146,12 +148,12 @@ function App() {
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+              <Toast />
             </Suspense>
           </LiveProvider>
         </SkinsProvider>
       </AuthProvider>
     </BrowserRouter>
-      <Toast />
     </ErrorBoundary>
   );
 }

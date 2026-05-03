@@ -23,25 +23,7 @@ import './Dashboard.css';
 
 import PlayerProfile from './dashboard/PlayerProfile';
 
-// --- HELPERS ---
-const cleanRUT = (rut) => rut.replace(/[.-]/g, '');
-
-const validateRUT = (rut) => {
-  const clean = cleanRUT(rut);
-  if (clean.length < 8) return false;
-  const body = clean.slice(0, -1);
-  const dv = clean.slice(-1).toUpperCase();
-  
-  let sum = 0;
-  let mul = 2;
-  for (let i = body.length - 1; i >= 0; i--) {
-    sum += parseInt(body[i]) * mul;
-    mul = mul === 7 ? 2 : mul + 1;
-  }
-  const res = 11 - (sum % 11);
-  const expectedDv = res === 11 ? '0' : res === 10 ? 'K' : res.toString();
-  return dv === expectedDv;
-};
+// RUT helpers removed (FUNC-02: were never used)
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -61,6 +43,21 @@ const Dashboard = () => {
         const currentDate = new Date();
         const firstDayOfMonth = format(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), 'yyyy-MM-dd');
 
+        // ARCH-01 FIX: Each query wrapped individually so a missing table won't crash everything
+        const safeQuery = async (query) => {
+          try {
+            const res = await query;
+            if (res.error) {
+              console.warn('[Dashboard] Query warning:', res.error.message);
+              return { data: null, count: 0 };
+            }
+            return res;
+          } catch (err) {
+            console.warn('[Dashboard] Query failed:', err?.message || 'Unknown error');
+            return { data: null, count: 0 };
+          }
+        };
+
         const [
           { count: playersCount },
           { count: catsCount },
@@ -68,11 +65,11 @@ const Dashboard = () => {
           { count: myPlantillaCount },
           { data: eventsData }
         ] = await Promise.all([
-          supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'player').neq('is_active', false),
-          supabase.from('categories').select('*', { count: 'exact', head: true }),
-          supabase.from('payments').select('amount').eq('type', 'income'),
-          user?.category_id ? supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('category_id', user.category_id).eq('role', 'player').neq('is_active', false) : Promise.resolve({ count: 0 }),
-          supabase.from('events').select('*').gte('date', currentDate.toISOString().split('T')[0]).order('date').limit(1)
+          safeQuery(supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'player').neq('is_active', false)),
+          safeQuery(supabase.from('categories').select('*', { count: 'exact', head: true })),
+          safeQuery(supabase.from('payments').select('amount').eq('type', 'income')),
+          user?.category_id ? safeQuery(supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('category_id', user.category_id).eq('role', 'player').neq('is_active', false)) : Promise.resolve({ count: 0 }),
+          safeQuery(supabase.from('events').select('*').gte('date', currentDate.toISOString().split('T')[0]).order('date').limit(1))
         ]);
 
         const monthlyIncome = (paymentsData || []).reduce((sum, p) => sum + p.amount, 0);
@@ -213,6 +210,8 @@ const ActivityItem = ({ text, time }) => (
 
 const ParentDashboardView = ({ user }) => {
   const [showAddPupil, setShowAddPupil] = useState(false);
+  const [showPupilProfile, setShowPupilProfile] = useState(false);
+  const [selectedPupilId, setSelectedPupilId] = useState(null);
   const [pupils, setPupils] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -305,6 +304,11 @@ const ParentDashboardView = ({ user }) => {
     }
   };
 
+  const handleShowProfile = (pupilId) => {
+    setSelectedPupilId(pupilId);
+    setShowPupilProfile(true);
+  };
+
   return (
     <div className="dashboard-home parent-view">
       <div className="welcome-banner glass">
@@ -384,7 +388,13 @@ const ParentDashboardView = ({ user }) => {
               </div>
             </div>
             
-            <button className="btn-secondary-outline" style={{ width: '100%', marginTop: '15px' }}>Ver Perfil</button>
+            <button 
+              className="btn-secondary-outline" 
+              style={{ width: '100%', marginTop: '15px' }}
+              onClick={() => handleShowProfile(p.id)}
+            >
+              Ver Perfil
+            </button>
           </div>
         ))}
       </div>
@@ -422,6 +432,28 @@ const ParentDashboardView = ({ user }) => {
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button className="btn-secondary-outline" onClick={() => setShowAddPupil(false)} style={{ flex: 1 }}>Cancelar</button>
                 <button className="btn-primary" style={{ flex: 1 }} onClick={handleLinkPupil}>Vincular</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showPupilProfile && (
+          <div className="modal-overlay" onClick={() => setShowPupilProfile(false)}>
+            <motion.div 
+              className="modal-content profile-modal-wide" 
+              onClick={e => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              style={{ width: '95%', maxWidth: '1000px', padding: '0', maxHeight: '90vh', overflowY: 'auto' }}
+            >
+              <div style={{ position: 'sticky', top: 0, right: 0, padding: '20px', textAlign: 'right', zIndex: 10, background: 'linear-gradient(to bottom, rgba(15, 23, 42, 0.9), transparent)' }}>
+                <button className="btn-refresh" onClick={() => setShowPupilProfile(false)} style={{ borderRadius: '50%', width: '40px', height: '40px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Users size={20} />
+                </button>
+              </div>
+              <div style={{ padding: '0 20px 40px' }}>
+                <PlayerProfile playerId={selectedPupilId} />
               </div>
             </motion.div>
           </div>

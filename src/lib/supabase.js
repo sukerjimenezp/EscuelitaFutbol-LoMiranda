@@ -21,8 +21,9 @@ export const supabase = createClient(
   }
 );
 
-// Secondary client for Admin operations (creates users without dropping current session)
-export const adminAuthClient = createClient(
+// ARCH-02 FIX: Renamed from 'adminAuthClient' — this client isolates sessions
+// (e.g. creating users without dropping the current session). Same anon key, no admin privileges.
+export const isolatedAuthClient = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'placeholder-key',
   {

@@ -108,11 +108,18 @@ const Finance = () => {
   ];
 
   // Función para exportar a Excel (CSV)
+  // SEC-04 FIX: Sanitize cell values to prevent CSV Injection in Excel/Sheets
+  const sanitizeCSVCell = (val) => {
+    const str = String(val);
+    if (/^[=+\-@\t\r]/.test(str)) return `'${str}`;
+    return str;
+  };
+
   const exportExcel = () => {
     const headers = ['Fecha', 'Descripción', 'Tipo', 'Monto'];
     const rows = financeList.map(f => [
-      f.date,
-      `"${f.description.replace(/"/g, '""')}"`,
+      sanitizeCSVCell(f.date),
+      `"${sanitizeCSVCell(f.description).replace(/"/g, '""')}"`,
       f.type === 'income' ? 'Ingreso' : 'Egreso',
       f.amount
     ]);
@@ -187,11 +194,11 @@ const Finance = () => {
          if (error) throw error;
          showToast('Movimiento registrado', 'success');
       }
-      
-      fetchFinances(); // Sincronizamos con la base de datos
     } catch (e) {
       showToast('Error de red al guardar: ' + e.message, 'error');
-      fetchFinances(); // Revertimos
+    } finally {
+      // PERF-02 FIX: Single fetch in finally instead of double fetch
+      fetchFinances();
     }
   };
 

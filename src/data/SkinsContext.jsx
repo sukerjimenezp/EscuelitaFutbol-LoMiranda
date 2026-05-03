@@ -39,36 +39,18 @@ export const SkinsProvider = ({ children }) => {
     fetchData();
   }, [fetchData]);
 
+  // SEC-02 FIX: Atomic server-side purchase via RPC (prevents race condition)
   const purchaseSkin = async (skinId, cost) => {
     if (!user) return { success: false, error: 'No authenticated user' };
     
-    // 1. Check points
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('points')
-      .eq('id', user.id)
-      .single();
+    const { data, error } = await supabase.rpc('purchase_skin', { p_skin_id: skinId });
     
-    if ((profile?.points || 0) < cost) {
-      return { success: false, error: 'Puntos insuficientes' };
-    }
+    if (error) return { success: false, error: error.message };
+    if (!data?.success) return { success: false, error: data?.error || 'Error desconocido' };
 
-    // 2. Add to inventory
-    const { error: invError } = await supabase
-      .from('user_skins')
-      .insert({ user_id: user.id, skin_id: skinId });
-    
-    if (invError) return { success: false, error: invError.message };
-
-    // 3. Deduct points
-    await supabase
-      .from('profiles')
-      .update({ points: profile.points - cost })
-      .eq('id', user.id);
-    
-    // 4. Refresh local state
+    // Refresh local state
     setUserSkins(prev => [...prev, skinId]);
-    return { success: true };
+    return { success: true, remainingPoints: data.remaining_points };
   };
 
   const addSkinAdmin = async (newSkin) => {

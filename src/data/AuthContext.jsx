@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
@@ -23,18 +23,20 @@ export const AuthProvider = ({ children }) => {
             .single();
           
           if (!profileError && profile && mounted) {
+            // SEC-01 FIX: Check superadmin via server-side RPC instead of hardcoded emails
+            const { data: isSA } = await supabase.rpc('is_superadmin');
             setUser({ 
               ...session.user, 
               ...profile, 
               name: profile.full_name || session.user.email,
-              role: ['escuelafclomiranda@gmail.com', 'suker.sms@gmail.com', 'testdt@lomiranda.cl'].includes(session.user.email) ? 'superadmin' : profile.role
+              role: isSA ? 'superadmin' : profile.role
             });
           } else if (mounted) {
-            // [FIX: Fallback Inseguro de Rol] No asignar 'player' sin perfil.
-            if (session.user.email === 'escuelafclomiranda@gmail.com') {
+            // SEC-01 FIX: Fallback also uses RPC
+            const { data: isSA } = await supabase.rpc('is_superadmin');
+            if (isSA) {
               setUser({ ...session.user, name: 'Super Admin', role: 'superadmin' });
             } else {
-              // Si no tiene perfil válido, se invalida el acceso.
               setUser(null);
               supabase.auth.signOut();
             }
@@ -49,13 +51,13 @@ export const AuthProvider = ({ children }) => {
 
     initializeAuth();
 
-    // Sincronización en tiempo real del perfil del usuario
-    let profileSubscription = null;
+    // PERF-01 FIX: Use ref to track subscription and prevent memory leaks
+    const profileSubRef = { current: null };
 
     const setupProfileSubscription = (userId) => {
-      if (profileSubscription) profileSubscription.unsubscribe();
+      if (profileSubRef.current) profileSubRef.current.unsubscribe();
       
-      profileSubscription = supabase
+      profileSubRef.current = supabase
         .channel(`public:profiles:id=eq.${userId}`)
         .on('postgres_changes', { 
           event: 'UPDATE', 
@@ -90,18 +92,22 @@ export const AuthProvider = ({ children }) => {
             .eq('id', session.user.id)
             .single();
           
+          // SEC-01 FIX: Server-side superadmin check
+          const { data: isSA } = await supabase.rpc('is_superadmin');
+          
           if (mounted) {
             setUser({ 
               ...session.user, 
               ...(profile || {}), 
               name: profile?.full_name || session.user.email,
-              role: ['escuelafclomiranda@gmail.com', 'suker.sms@gmail.com', 'testdt@lomiranda.cl'].includes(session.user.email) ? 'superadmin' : profile?.role
+              role: isSA ? 'superadmin' : profile?.role
             });
           }
         } catch (err) {
           console.error('[AuthContext] Auth change profile fetch error:', err);
           if (mounted) {
-            if (['escuelafclomiranda@gmail.com', 'suker.sms@gmail.com', 'testdt@lomiranda.cl'].includes(session.user.email)) {
+            const { data: isSA } = await supabase.rpc('is_superadmin').catch(() => ({ data: false }));
+            if (isSA) {
               setUser({ ...session.user, name: 'Super Admin', role: 'superadmin' });
             } else {
               setUser(null);
@@ -112,7 +118,7 @@ export const AuthProvider = ({ children }) => {
           if (mounted) setLoading(false);
         }
       } else {
-        if (profileSubscription) profileSubscription.unsubscribe();
+        if (profileSubRef.current) profileSubRef.current.unsubscribe();
         if (mounted) {
           setUser(null);
           setLoading(false);
@@ -123,7 +129,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       mounted = false;
       authSubscription.unsubscribe();
-      if (profileSubscription) profileSubscription.unsubscribe();
+      if (profileSubRef.current) profileSubRef.current.unsubscribe();
     };
 
   }, []);

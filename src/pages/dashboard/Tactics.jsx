@@ -22,6 +22,7 @@ import {
   Maximize2,
   MousePointer2
 } from 'lucide-react';
+import { showToast } from '../../components/Toast';
 import './Tactics.css';
 
 const Tactics = () => {
@@ -31,6 +32,7 @@ const Tactics = () => {
   const [deployedPlayers, setDeployedPlayers] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [categoriesList, setCategoriesList] = useState([]);
+  const [savingTactic, setSavingTactic] = useState(false);
 
   const BLANK_PLAYER = {
     id: 'blank-', // Se completará con el index
@@ -85,6 +87,67 @@ const Tactics = () => {
 
     fetchPlayers();
   }, [selectedCategory]);
+
+  // FUNC-03: Load saved tactic when category changes
+  useEffect(() => {
+    const loadTactic = async () => {
+      if (!user?.id) return;
+      const { data } = await supabase
+        .from('tactics')
+        .select('*')
+        .eq('category_id', selectedCategory)
+        .eq('created_by', user.id)
+        .single();
+
+      if (data) {
+        setFormation(data.formation || '4-3-3');
+        // We'll apply the saved deployed_players after players are loaded
+        if (data.deployed_players && Array.isArray(data.deployed_players)) {
+          setDeployedPlayers(data.deployed_players);
+        }
+      } else {
+        setDeployedPlayers([]);
+        setFormation('4-3-3');
+      }
+    };
+    loadTactic();
+  }, [selectedCategory, user?.id]);
+
+  // FUNC-03: Save tactic to Supabase
+  const saveTactic = async () => {
+    if (!user?.id) return;
+    setSavingTactic(true);
+    try {
+      const tacticData = {
+        category_id: selectedCategory,
+        formation,
+        deployed_players: deployedPlayers.map(p => ({
+          id: p.id,
+          name: p.name,
+          position: p.position,
+          overall: p.overall,
+          image: p.image,
+          x: p.x,
+          y: p.y,
+          isBlank: p.isBlank || false
+        })),
+        created_by: user.id,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('tactics')
+        .upsert(tacticData, { onConflict: 'category_id, created_by' });
+
+      if (error) throw error;
+      showToast('¡Formación guardada exitosamente!', 'success');
+    } catch (err) {
+      console.error('[Tactics] Save error:', err);
+      showToast('Error al guardar: ' + err.message, 'error');
+    } finally {
+      setSavingTactic(false);
+    }
+  };
 
   const benchPlayers = players.filter(p => !deployedPlayers.find(dp => dp.id === p.id));
 
@@ -197,9 +260,9 @@ const Tactics = () => {
               <RefreshCw size={18} />
               Reiniciar
             </button>
-            <button className="btn-primary" onClick={() => alert('Táctica guardada con éxito')}>
+            <button className="btn-primary" onClick={saveTactic} disabled={savingTactic}>
               <Save size={18} />
-              Guardar Táctica
+              {savingTactic ? 'Guardando...' : 'Guardar Táctica'}
             </button>
           </div>
         </div>

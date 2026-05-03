@@ -17,13 +17,15 @@ import {
   Image as ImageIcon,
   Send,
   Edit,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, getDay, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../data/AuthContext';
+import { showToast } from '../../components/Toast';
 import './Calendar.css';
 
 const Calendar = () => {
@@ -45,7 +47,29 @@ const Calendar = () => {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkSuccess, setBulkSuccess] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false); // Nuevo: Estado para confirmación de borrado
-  const [eventList, setEventList] = useState(events);
+  const [eventList, setEventList] = useState([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+
+  React.useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    setLoadingEvents(true);
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .order('date', { ascending: true });
+      
+      if (error) throw error;
+      if (data) setEventList(data);
+    } catch (err) {
+      console.error('Error fetching events:', err);
+    } finally {
+      setLoadingEvents(false);
+    }
+  };
   
   // Estado para ver detalles de un evento
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -106,7 +130,7 @@ const Calendar = () => {
   const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
 
   const filteredEvents = eventList.filter(e => 
-    selectedCategory === 'all' || e.category === selectedCategory || !e.category
+    selectedCategory === 'all' || e.category_id === selectedCategory
   );
 
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
@@ -116,23 +140,52 @@ const Calendar = () => {
     setNewEvent(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveEvent = () => {
+  const handleSaveEvent = async () => {
     if (!newEvent.title) return alert('Debes ingresar un título para el evento');
 
-    if (newEvent.id) {
-      // Editar evento existente
-      setEventList(prev => prev.map(e => e.id === newEvent.id ? newEvent : e));
-    } else {
-      // Crear nuevo evento
-      const eventToSave = {
-        ...newEvent,
-        id: Date.now(),
-      };
-      setEventList(prev => [...prev, eventToSave]);
-    }
+    try {
+      if (newEvent.id && typeof newEvent.id === 'string' && newEvent.id.length > 20) {
+        // Editar evento existente en BD
+        const { error } = await supabase
+          .from('events')
+          .update({
+            title: newEvent.title,
+            date: newEvent.date,
+            time: newEvent.time,
+            location: newEvent.location,
+            type: newEvent.type,
+            category_id: newEvent.category,
+            description: newEvent.description
+          })
+          .eq('id', newEvent.id);
+        
+        if (error) throw error;
+        showToast('Evento actualizado', 'success');
+      } else {
+        // Crear nuevo evento en BD
+        const { error } = await supabase
+          .from('events')
+          .insert([{
+            title: newEvent.title,
+            date: newEvent.date,
+            time: newEvent.time,
+            location: newEvent.location,
+            type: newEvent.type,
+            category_id: newEvent.category,
+            description: newEvent.description
+          }]);
+        
+        if (error) throw error;
+        showToast('Evento creado', 'success');
+      }
 
-    setShowModal(false);
-    resetNewEvent();
+      fetchEvents(); // Recargar de la BD
+      setShowModal(false);
+      resetNewEvent();
+    } catch (err) {
+      console.error('Error saving event:', err);
+      showToast('Error al guardar: ' + err.message, 'error');
+    }
   };
 
   const resetNewEvent = () => {
@@ -147,23 +200,36 @@ const Calendar = () => {
     });
   };
 
-  const handleDeleteEvent = (eventId) => {
-    // Si ya estamos en estado de confirmación, ejecutamos el borrado
+  const handleDeleteEvent = async (eventId) => {
     if (isDeleting) {
-      setEventList(prev => prev.filter(e => e.id !== eventId));
-      setSelectedEvent(null);
-      setIsDeleting(false);
+      try {
+        const { error } = await supabase
+          .from('events')
+          .delete()
+          .eq('id', eventId);
+        
+        if (error) throw error;
+        showToast('Evento eliminado', 'success');
+        fetchEvents();
+        setSelectedEvent(null);
+        setIsDeleting(false);
+      } catch (err) {
+        console.error('Error deleting event:', err);
+        showToast('Error al eliminar', 'error');
+      }
     } else {
-      // Si no, activamos la confirmación
       setIsDeleting(true);
     }
   };
 
   const handleEditClick = (event) => {
-    setNewEvent(event);
+    setNewEvent({
+      ...event,
+      category: event.category_id
+    });
     setSelectedEvent(null);
     setShowModal(true);
-    setIsDeleting(false); // Reset por si acaso
+    setIsDeleting(false);
   };
 
   // Toggle día de la semana en carga masiva
@@ -176,8 +242,8 @@ const Calendar = () => {
     }));
   };
 
-  // Generar eventos masivos
-  const handleBulkCreate = () => {
+  // Generar eventos masivos en BD
+  const handleBulkCreate = async () => {
     if (bulkConfig.days.length === 0) return alert('Selecciona al menos un día de la semana');
     if (!bulkConfig.title) return alert('Ingresa un título para los eventos');
 
@@ -185,32 +251,39 @@ const Calendar = () => {
     const to = parseLocalDate(bulkConfig.dateTo);
     const allDays = eachDayOfInterval({ start: from, end: to });
 
-    // Filtrar solo los días seleccionados (getDay: 0=Dom, 1=Lun...6=Sab)
     const matchingDays = allDays.filter(day => bulkConfig.days.includes(getDay(day)));
 
-    const newEvents = matchingDays.map((day, idx) => ({
-      id: Date.now() + idx,
+    const newEvents = matchingDays.map((day) => ({
       title: bulkConfig.title,
       date: format(day, 'yyyy-MM-dd'),
       time: bulkConfig.time,
       location: bulkConfig.location,
       type: bulkConfig.type,
-      category: bulkConfig.category
+      category_id: bulkConfig.category
     }));
 
-    setEventList(prev => [...prev, ...newEvents]);
-    setBulkSuccess(newEvents.length);
+    try {
+      const { error } = await supabase
+        .from('events')
+        .insert(newEvents);
+      
+      if (error) throw error;
+      
+      setBulkSuccess(newEvents.length);
+      fetchEvents();
 
-    setTimeout(() => {
-      setBulkSuccess(null);
-      setShowBulkModal(false);
-    }, 2000);
+      setTimeout(() => {
+        setBulkSuccess(null);
+        setShowBulkModal(false);
+      }, 2000);
+    } catch (err) {
+      console.error('Error in bulk create:', err);
+      showToast('Error en carga masiva', 'error');
+    }
   };
 
   // Enviar mensaje por WhatsApp
   const handleSendWhatsApp = () => {
-    // La API de WhatsApp URL scheme sólo soporta texto predefinido, no archivos adjuntos.
-    // El texto se codifica para pasarlo en la URL.
     const encodedText = encodeURIComponent(waMessage);
     const waUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
     window.open(waUrl, '_blank');
@@ -225,7 +298,7 @@ const Calendar = () => {
     }
   };
 
-  // ── Lógica Coordinación de Partidos ──
+  // ── Lógica Coordinación de Partidos con BD ──
 
   const handleToggleMatchSerie = (categoryId) => {
     setMatchCoordination(prev => {
@@ -252,61 +325,65 @@ const Calendar = () => {
     }
   };
 
-  const handleSaveMatchCoordination = () => {
+  const handleSaveMatchCoordination = async () => {
     if (!matchCoordination.rival.trim()) return alert('Debes ingresar el nombre del club rival');
     if (matchCoordination.series.length === 0) return alert('Debes seleccionar al menos una serie para el encuentro');
 
-    // Generar un evento "match" por cada serie seleccionada
-    const newEvents = matchCoordination.series.map((serie, idx) => ({
-      id: Date.now() + idx,
+    const newEvents = matchCoordination.series.map((serie) => ({
       type: 'match',
       title: `vs ${matchCoordination.rival}`,
       date: matchCoordination.date,
       time: serie.time,
       location: matchCoordination.location,
-      category: serie.id,
+      category_id: serie.id,
       description: matchCoordination.description,
-      flyer: matchCoordination.flyer // Guardamos la referencia de la imagen
+      // flyer: matchCoordination.flyer // TODO: Implementar upload de imágenes a storage
     }));
 
-    setEventList(prev => [...prev, ...newEvents]);
-    setShowMatchModal(false);
+    try {
+      const { error } = await supabase
+        .from('events')
+        .insert(newEvents);
+      
+      if (error) throw error;
+      
+      fetchEvents();
+      setShowMatchModal(false);
 
-    // Formatear mensaje de WhatsApp sugerido
-    // Usamos parseLocalDate para que la fecha en el mensaje coincida con lo ingresado
-    const matchDateObj = parseLocalDate(matchCoordination.date);
-    let waSuggestedMessage = `⚽ *PROGRAMACIÓN OFICIAL* ⚽\n\n🏆 *Encuentro:* Lo Miranda FC vs ${matchCoordination.rival}\n📅 *Fecha:* ${format(matchDateObj, "EEEE d 'de' MMMM", { locale: es })}\n📍 *Lugar:* ${matchCoordination.location}\n\n*🕒 HORARIOS POR SERIE:*\n`;
-    
-    // Ordenar series por hora para el mensaje
-    const sortedSeries = [...matchCoordination.series].sort((a, b) => a.time.localeCompare(b.time));
-    
-    sortedSeries.forEach(s => {
-      const catName = categoriesList.find(c => c.id === s.id)?.name || s.id;
-      waSuggestedMessage += `🔹 *${catName}:* ${s.time} hrs\n`;
-    });
+      // Formatear mensaje de WhatsApp
+      const matchDateObj = parseLocalDate(matchCoordination.date);
+      let waSuggestedMessage = `⚽ *PROGRAMACIÓN OFICIAL* ⚽\n\n🏆 *Encuentro:* Lo Miranda FC vs ${matchCoordination.rival}\n📅 *Fecha:* ${format(matchDateObj, "EEEE d 'de' MMMM", { locale: es })}\n📍 *Lugar:* ${matchCoordination.location}\n\n*🕒 HORARIOS POR SERIE:*\n`;
+      
+      const sortedSeries = [...matchCoordination.series].sort((a, b) => a.time.localeCompare(b.time));
+      sortedSeries.forEach(s => {
+        const catName = categoriesList.find(c => c.id === s.id)?.name || s.id;
+        waSuggestedMessage += `🔹 *${catName}:* ${s.time} hrs\n`;
+      });
 
-    if (matchCoordination.description) {
-      waSuggestedMessage += `\n📝 *Notas:* ${matchCoordination.description}\n`;
+      if (matchCoordination.description) {
+        waSuggestedMessage += `\n📝 *Notas:* ${matchCoordination.description}\n`;
+      }
+      
+      waSuggestedMessage += `\n¡Los esperamos a todos con la mejor energía! 🙌⚽`;
+
+      setMatchCoordination({
+        rival: '',
+        date: format(addDays(new Date(), 3), 'yyyy-MM-dd'),
+        location: 'Cancha Lo Miranda',
+        series: [],
+        description: '',
+        flyer: null
+      });
+
+      setWaMessage(waSuggestedMessage);
+      setWaImage(matchCoordination.flyer);
+      setTimeout(() => {
+        setShowWaModal(true);
+      }, 500);
+    } catch (err) {
+      console.error('Error saving match coordination:', err);
+      showToast('Error al coordinar encuentro', 'error');
     }
-    
-    waSuggestedMessage += `\n¡Los esperamos a todos con la mejor energía! 🙌⚽`;
-
-    // Resetear formulario
-    setMatchCoordination({
-      rival: '',
-      date: format(addDays(new Date(), 3), 'yyyy-MM-dd'),
-      location: 'Cancha Lo Miranda',
-      series: [],
-      description: '',
-      flyer: null
-    });
-
-    // Abrir modal de WhatsApp con el texto pre-llenado (y la imagen si existe)
-    setWaMessage(waSuggestedMessage);
-    setWaImage(matchCoordination.flyer);
-    setTimeout(() => {
-      setShowWaModal(true);
-    }, 500);
   };
 
   return (
@@ -725,7 +802,7 @@ const Calendar = () => {
                     <Trophy size={18} className="text-sky" />
                     <div>
                       <span className="detail-label">Categoría</span>
-                      <p>{selectedEvent.category ? categoriesList.find(c => c.id === selectedEvent.category)?.name : 'General'}</p>
+                      <p>{selectedEvent.category_id ? categoriesList.find(c => c.id === selectedEvent.category_id)?.name : 'General'}</p>
                     </div>
                   </div>
                 </div>
@@ -889,7 +966,7 @@ const Calendar = () => {
                 <div className="field">
                   <label>Series Participantes y Horarios</label>
                   <div className="series-selection-grid">
-                    {categories.map(cat => {
+                    {categoriesList.map(cat => {
                       const isSelected = matchCoordination.series.some(s => s.id === cat.id);
                       const serieData = matchCoordination.series.find(s => s.id === cat.id);
                       

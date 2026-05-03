@@ -1,90 +1,138 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../data/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Lock, Unlock, Zap, Trophy, Shield, Star, CheckCircle, MessageSquare, Heart } from 'lucide-react';
+import { Lock, Unlock, Zap, Trophy, Shield, Star, CheckCircle, MessageSquare, Heart, RefreshCw } from 'lucide-react';
+import { showToast, showConfirm } from '../../components/Toast';
 import './PlayerProfile.css';
 
 import PlayerCard from '../../components/PlayerCard';
-import { playersByCategory } from '../../data/mockData';
 
-// Importar imágenes locales desde src/images/avatares
+// PERF-06 FIX: Removed unused mockData import (migrated to Supabase)
 import { useSkins } from '../../data/SkinsContext';
 
-const PlayerProfile = () => {
-  const { user, updateUserAvatar } = useAuth();
-  const { skins, userSkins, purchaseSkin, loading: skinsLoading } = useSkins();
+const PlayerProfile = ({ playerId }) => {
+  const { user: authUser, updateUserAvatar } = useAuth();
+  const { skins, userSkins: authUserSkins, purchaseSkin, loading: skinsLoading } = useSkins();
+  
+  const [targetUser, setTargetUser] = useState(null);
+  const [targetUserSkins, setTargetUserSkins] = useState([]);
   const [purchasingId, setPurchasingId] = useState(null);
   const [redemptions, setRedemptions] = useState([]);
   const [loadingRedemptions, setLoadingRedemptions] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   
-  // 1. Fetch Feedback from Supabase (instead of localStorage)
   const [feedback, setFeedback] = useState({
     title: '¡BUEN TRABAJO!',
-    message: `Hola ${user?.full_name?.split(' ')[0] || 'Jugador'}, estamos analizando tu progreso...`,
+    message: 'Estamos analizando el progreso...',
     points: ['Sigue entrenando duro para ganar puntos', 'Participa en las trivias semanales'],
     footer: '¡A seguir divirtiéndonos!'
   });
 
   useEffect(() => {
-    const fetchFeedback = async () => {
-      if (user) {
-        const { data } = await supabase
+    const loadProfileData = async () => {
+      setProfileLoading(true);
+      const effectiveId = playerId || authUser?.id;
+      const readOnly = !!playerId && playerId !== authUser?.id;
+      setIsReadOnly(readOnly);
+
+      if (!effectiveId) {
+        setProfileLoading(false);
+        return;
+      }
+
+      try {
+        // 1. Fetch User Profile
+        const { data: pData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', effectiveId)
+          .single();
+        
+        if (pData) setTargetUser(pData);
+
+        // 2. Fetch Feedback
+        const { data: fData } = await supabase
           .from('feedback')
           .select('*')
-          .eq('player_id', user.id)
+          .eq('player_id', effectiveId)
           .single();
-        if (data) setFeedback(data);
+        if (fData) setFeedback(fData);
+
+        // 3. Fetch Skins owned by this player
+        const { data: sData } = await supabase
+          .from('user_skins')
+          .select('*, skins(*)')
+          .eq('user_id', effectiveId)
+          .order('created_at', { ascending: false });
+        
+        if (sData) {
+          setRedemptions(sData);
+          setTargetUserSkins(sData.map(s => s.skin_id));
+        }
+      } catch (err) {
+        console.error('Error loading profile data:', err);
+      } finally {
+        setProfileLoading(false);
+        setLoadingRedemptions(false);
       }
     };
 
-    fetchFeedback();
-    fetchRedemptions();
-  }, [user]);
-
-  const fetchRedemptions = async () => {
-    if (user) {
-      setLoadingRedemptions(true);
-      const { data } = await supabase
-        .from('user_skins')
-        .select('*, skins(*)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      
-      if (data) setRedemptions(data);
-      setLoadingRedemptions(false);
-    }
-  };
+    loadProfileData();
+  }, [playerId, authUser]);
 
   const handleEquipSkin = async (skinUrl) => {
+    if (isReadOnly) return;
     await updateUserAvatar(skinUrl);
-    alert('¡Skin equipada con éxito!');
+    setTargetUser(prev => ({ ...prev, avatar_url: skinUrl }));
+    showToast('¡Skin equipada con éxito!', 'success');
   };
 
   const handleBuySkin = async (skin) => {
-    if (confirm(`¿Quieres comprar a ${skin.name} por ${skin.cost} puntos?`)) {
+    if (isReadOnly) return;
+    showConfirm(`¿Quieres comprar a ${skin.name} por ${skin.cost} puntos?`, async () => {
       setPurchasingId(skin.id);
       const result = await purchaseSkin(skin.id, skin.cost);
       if (result.success) {
-        alert('¡Compra exitosa! Ahora puedes equipar esta skin.');
-        fetchRedemptions(); // Refresh history
+        showToast('¡Compra exitosa! Ahora puedes equipar esta skin.', 'success');
+        // Refresh redemptions
+        const { data: sData } = await supabase
+          .from('user_skins')
+          .select('*, skins(*)')
+          .eq('user_id', targetUser.id);
+        if (sData) {
+          setRedemptions(sData);
+          setTargetUserSkins(sData.map(s => s.skin_id));
+        }
       } else {
-        alert('Error: ' + result.error);
+        showToast('Error: ' + result.error, 'error');
       }
       setPurchasingId(null);
-    }
+    });
   };
 
+  if (profileLoading) {
+    return (
+      <div className="gamer-profile-container" style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'400px' }}>
+        <RefreshCw size={32} className="spin-icon text-sky" />
+        <p style={{ marginLeft: '10px' }}>Cargando perfil...</p>
+      </div>
+    );
+  }
+
+  const displayUser = targetUser || authUser;
+
   const fifaStats = {
-    name: user?.full_name,
-    overall: user?.overall || 75,
-    position: user?.position || 'MED',
-    pace: user?.pace || 70,
-    shooting: user?.shooting || 65,
-    passing: user?.passing || 72,
-    dribbling: user?.dribbling || 70,
-    defense: user?.defense || 60,
-    physical: user?.physical || 68,
-    image: user?.avatar_url
+    name: displayUser?.full_name,
+    overall: displayUser?.overall || 75,
+    position: displayUser?.position || 'MED',
+    pace: displayUser?.pace || 70,
+    shooting: displayUser?.shooting || 65,
+    passing: displayUser?.passing || 72,
+    dribbling: displayUser?.dribbling || 70,
+    defense: displayUser?.defense || 60,
+    physical: displayUser?.physical || 68,
+    image: displayUser?.avatar_url
   };
 
   return (
@@ -98,12 +146,12 @@ const PlayerProfile = () => {
 
         <div className="banner-right">
           <div className="gp-user-info">
-            <h1>{user?.full_name}</h1>
+            <h1>{displayUser?.full_name}</h1>
             <div className="gp-badges">
               <span className="gp-role-badge"><Zap size={16} /> JUGADOR ACTIVO</span>
               <div className="points-display-premium glass">
                 <Trophy size={20} className="text-yellow" />
-                <span className="points-val">{user?.points || 0}</span>
+                <span className="points-val">{displayUser?.points || 0}</span>
                 <span className="points-lbl">PUNTOS</span>
               </div>
             </div>
@@ -142,7 +190,7 @@ const PlayerProfile = () => {
           </div>
           <p className="main-coach-msg">{feedback.message}</p>
           <div className="specific-points-list">
-            {feedback.points.map((point, index) => (
+            {feedback.points && feedback.points.map((point, index) => (
               <div key={index} className="point-item glass">
                 <Heart size={16} fill="#ef4444" color="#ef4444" />
                 <span>{point}</span>
@@ -152,11 +200,11 @@ const PlayerProfile = () => {
         </div>
       </div>
 
-      {/* ARMARIO DE SKINS / TIENDA */}
+      {/* ARMARIO DE SKINS / TIENDA (Solo si no es modo lectura) */}
       <div className="skin-locker-section">
         <div className="locker-header">
           <h2><Star size={24} color="#fbbf24" /> Armario de Skins</h2>
-          <p>Usa tus puntos para desbloquear nuevas leyendas.</p>
+          <p>{isReadOnly ? 'Skins desbloqueadas por el jugador.' : 'Usa tus puntos para desbloquear nuevas leyendas.'}</p>
         </div>
 
         {skinsLoading ? (
@@ -164,9 +212,12 @@ const PlayerProfile = () => {
         ) : (
           <div className="skins-grid">
             {skins.map((skin) => {
-              const isOwned = userSkins.includes(skin.id);
-              const isEquipped = user?.avatar_url === skin.image_url;
-              const canAfford = (user?.points || 0) >= skin.cost;
+              const isOwned = targetUserSkins.includes(skin.id);
+              const isEquipped = displayUser?.avatar_url === skin.image_url;
+              const canAfford = (displayUser?.points || 0) >= skin.cost;
+
+              // Si es lectura, solo mostrar las que TIENE
+              if (isReadOnly && !isOwned) return null;
 
               return (
                 <div 
@@ -187,27 +238,34 @@ const PlayerProfile = () => {
                     <h3>{skin.name}</h3>
                     <div className="skin-rarity-badge">{skin.rarity.toUpperCase()}</div>
                     
-                    {isOwned ? (
-                      <button 
-                        className={`equip-btn ${isEquipped ? 'active' : ''}`}
-                        onClick={() => handleEquipSkin(skin.image_url)}
-                        disabled={isEquipped}
-                      >
-                        {isEquipped ? 'EQUIPADO' : 'EQUIPAR'}
-                      </button>
-                    ) : (
-                      <button 
-                        className={`buy-btn ${canAfford ? 'affordable' : 'expensive'}`}
-                        onClick={() => handleBuySkin(skin)}
-                        disabled={!canAfford || purchasingId === skin.id}
-                      >
-                        {purchasingId === skin.id ? 'COMPRANDO...' : canAfford ? 'COMPRAR' : 'FALTAN PUNTOS'}
-                      </button>
+                    {!isReadOnly && (
+                      <>
+                        {isOwned ? (
+                          <button 
+                            className={`equip-btn ${isEquipped ? 'active' : ''}`}
+                            onClick={() => handleEquipSkin(skin.image_url)}
+                            disabled={isEquipped}
+                          >
+                            {isEquipped ? 'EQUIPADO' : 'EQUIPAR'}
+                          </button>
+                        ) : (
+                          <button 
+                            className={`buy-btn ${canAfford ? 'affordable' : 'expensive'}`}
+                            onClick={() => handleBuySkin(skin)}
+                            disabled={!canAfford || purchasingId === skin.id}
+                          >
+                            {purchasingId === skin.id ? 'COMPRANDO...' : canAfford ? 'COMPRAR' : 'FALTAN PUNTOS'}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
               );
             })}
+            {isReadOnly && targetUserSkins.length === 0 && (
+              <p className="text-muted" style={{ gridColumn: '1/-1', textAlign: 'center', padding: '20px' }}>Este jugador no tiene skins adicionales aún.</p>
+            )}
           </div>
         )}
       </div>
@@ -215,8 +273,8 @@ const PlayerProfile = () => {
       {/* HISTORIAL DE CANJES */}
       <div className="redemptions-history-section glass mb-8">
         <div className="locker-header">
-          <h2><CheckCircle size={24} className="text-sky" /> Mis Canjes</h2>
-          <p>Historial de recompensas desbloqueadas con tus puntos.</p>
+          <h2><CheckCircle size={24} className="text-sky" /> {isReadOnly ? 'Canjes Realizados' : 'Mis Canjes'}</h2>
+          <p>Historial de recompensas desbloqueadas.</p>
         </div>
 
         <div className="redemptions-list">
@@ -256,8 +314,7 @@ const PlayerProfile = () => {
           ) : (
             <div className="empty-redemptions">
               <Zap size={48} className="text-muted" />
-              <p>Aún no has canjeado tus puntos por ninguna skin.</p>
-              <small>¡Entrena y participa para ganar puntos!</small>
+              <p>{isReadOnly ? 'Este jugador aún no ha realizado canjes.' : 'Aún no has canjeado tus puntos por ninguna skin.'}</p>
             </div>
           )}
         </div>

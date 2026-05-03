@@ -13,7 +13,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase, adminAuthClient } from '../../lib/supabase';
+import { supabase, isolatedAuthClient } from '../../lib/supabase';
 import { getCategoryByAge } from '../../lib/ageValidator';
 import './Players.css';
 import { showToast, showConfirm } from '../../components/Toast';
@@ -27,6 +27,7 @@ const Players = () => {
   const [editingPlayerId, setEditingPlayerId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [successCredentials, setSuccessCredentials] = useState(null);
   const [categoriesList, setCategoriesList] = useState([]);
 
   // ── Estado Apoderado ──
@@ -205,7 +206,7 @@ const Players = () => {
           setShowModal(false);
           let toastMsg = 'Ficha actualizada exitosamente';
           if (parentResult?.isNew) {
-            toastMsg += ` | \uD83D\uDC68 Apoderado: ${parentResult.username} / ${parentResult.username}`;
+            toastMsg += ` | \uD83D\uDC68 Apoderado: ${parentResult.username}@lomiranda.cl / Clave: ${parentResult.password}`;
           } else if (parentResult) {
             toastMsg += ` | \uD83D\uDC68 Vinculado a: ${parentResult.name}`;
           }
@@ -225,7 +226,7 @@ const Players = () => {
           .ilike('full_name', playerToSave.full_name);
 
         if (existing && existing.length > 0) {
-          const cat = categories.find(c => c.id === existing[0].category_id);
+          const cat = categoriesList.find(c => c.id === existing[0].category_id);
           setFormError(`El jugador "${existing[0].full_name}" ya está registrado en ${cat?.name || existing[0].category_id}`);
           setSaving(false);
           return;
@@ -237,29 +238,47 @@ const Players = () => {
         const initial = parts[0].charAt(0).toLowerCase();
         const lastname = parts.length > 1 ? parts[parts.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '') : parts[0].toLowerCase().replace(/[^a-z0-9]/g, '');
         
-        // El usuario pidió que la clave/user sea inicial + apellido sin random suffix
         let rawUsername = `${initial}${lastname}`;
-        
-        // Si ya hay alguien con ese rawUsername, Supabase Auth tirará error y lo atajamos
-        const tempEmail = `${rawUsername}@lomiranda.cl`;
-        const tempPassword = rawUsername; // Contraseña default provisional
+        let tempEmail = `${rawUsername}@lomiranda.cl`;
+        let authData = null;
+        let authErr = null;
+        let finalPassword = '';
 
-        // ── Auth: Creación de Cuenta Shadow de Paso ──
-        console.log('[Registration] Generando cuenta Auth para:', tempEmail);
-        const { data: authData, error: authErr } = await adminAuthClient.auth.signUp({
-          email: tempEmail,
-          password: tempPassword,
-          options: {
-            data: { role: 'player' }
+        // ── Auth: Creación de Cuenta con Manejo de Colisiones ──
+        for (let i = 0; i <= 5; i++) {
+          const currentUsername = i === 0 ? rawUsername : `${rawUsername}${i}`;
+          tempEmail = `${currentUsername}@lomiranda.cl`;
+          // El usuario solicitó que la clave inicial sea exactamente el nombre de usuario final
+          finalPassword = currentUsername;
+          
+          console.log(`[Registration] Intentando Auth: ${tempEmail}`);
+          const response = await isolatedAuthClient.auth.signUp({
+            email: tempEmail,
+            password: finalPassword,
+            options: { data: { role: 'player' } }
+          });
+          
+          authData = response.data;
+          authErr = response.error;
+          
+          // Si el error NO es de colisión (o no hay error y no es fake success), rompemos el loop
+          const isFakeSuccess = !authErr && (!authData?.user?.identities || authData.user.identities.length === 0);
+          if (isFakeSuccess) {
+            authErr = { message: 'already registered' };
           }
-        });
+
+          if (!authErr || (!authErr.message.includes('already registered') && !authErr.message.includes('already exists'))) {
+            rawUsername = currentUsername; // Guardar el que funcionó
+            break;
+          }
+        }
 
         if (authErr) {
           console.error('[Registration] Error en Auth:', authErr);
-          if (authErr.message.includes('already registered') || authErr.message.includes('User already exists')) {
-             setFormError(`El usuario "${rawUsername}" ya existe. Prueba con otro nombre.`);
+          if (authErr.message.includes('already registered') || authErr.message.includes('already exists')) {
+             setFormError(`El usuario base "${rawUsername}" ya tiene demasiadas colisiones. Modifica el nombre (ej: agrega un segundo apellido).`);
           } else {
-             setFormError('Error de Autenticación: ' + authErr.message + '. Revisa si tienes "Confirm Email" activado en Supabase.');
+             setFormError('Error de Autenticación: ' + authErr.message);
           }
           setSaving(false);
           return;
@@ -318,14 +337,14 @@ const Players = () => {
 
           resetForm();
           setShowModal(false);
-          let toastMsg = `\u2705 Jugador: ${rawUsername} / ${tempPassword}`;
-          if (parentResult?.isNew) {
-            toastMsg += ` | \uD83D\uDC68 Apoderado: ${parentResult.username} / ${parentResult.username}`;
-          } else if (parentResult) {
-            toastMsg += ` | \uD83D\uDC68 Vinculado a: ${parentResult.name}`;
-          }
-          toastMsg += ` | \uD83D\uDCCC PIN: ${generatedPin}`;
-          showToast(toastMsg, 'success', 10000);
+          
+          setSuccessCredentials({
+            playerName: playerToSave.full_name,
+            playerUsername: rawUsername,
+            playerPassword: finalPassword,
+            pin: generatedPin,
+            parent: parentResult
+          });
           
           if (playerToSave.category_id !== selectedCategory) {
             setSelectedCategory(playerToSave.category_id);
@@ -386,20 +405,45 @@ const Players = () => {
       const lastname = parts.length > 1
         ? parts[parts.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '')
         : parts[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-      const parentUsername = `${initial}${lastname}`;
-      const parentTempEmail = `${parentUsername}@lomiranda.cl`;
+      
+      let parentUsername = `${initial}${lastname}`;
+      let parentTempEmail = `${parentUsername}@lomiranda.cl`;
+      let pAuth = null;
+      let pAuthErr = null;
+      let parentFinalPassword = '';
 
-      console.log('[Registration] Generando cuenta Auth para apoderado:', parentTempEmail);
-      const { data: pAuth, error: pAuthErr } = await adminAuthClient.auth.signUp({
-        email: parentTempEmail,
-        password: parentUsername,
-        options: { data: { role: 'parent' } }
-      });
+      // ── Manejo de Colisiones para Apoderado ──
+      for (let i = 0; i <= 5; i++) {
+        const currentUsername = i === 0 ? parentUsername : `${parentUsername}${i}`;
+        parentTempEmail = `${currentUsername}@lomiranda.cl`;
+        parentFinalPassword = currentUsername;
+        
+        console.log('[Registration] Intentando Auth Apoderado:', parentTempEmail);
+        const response = await isolatedAuthClient.auth.signUp({
+          email: parentTempEmail,
+          password: parentFinalPassword,
+          options: { data: { role: 'parent' } }
+        });
+        
+        pAuth = response.data;
+        pAuthErr = response.error;
+
+        // Detectar colisión con Email Enumeration Protection activado
+        const isFakeSuccess = !pAuthErr && (!pAuth?.user?.identities || pAuth.user.identities.length === 0);
+        if (isFakeSuccess) {
+          pAuthErr = { message: 'already registered' };
+        }
+
+        if (!pAuthErr || (!pAuthErr.message.includes('already registered') && !pAuthErr.message.includes('already exists'))) {
+          parentUsername = currentUsername;
+          break;
+        }
+      }
 
       if (pAuthErr) {
         console.error('[Registration] Error Auth apoderado:', pAuthErr);
-        if (pAuthErr.message.includes('already registered') || pAuthErr.message.includes('User already exists')) {
-          throw new Error(`Usuario "${parentUsername}" ya existe. Use nombre más específico.`);
+        if (pAuthErr.message.includes('already registered') || pAuthErr.message.includes('already exists')) {
+          throw new Error(`El usuario base "${parentUsername}" ya tiene demasiadas colisiones. Use nombre más específico.`);
         }
         throw pAuthErr;
       }
@@ -408,17 +452,20 @@ const Players = () => {
       console.log('[Registration] Apoderado Auth creado, UUID:', parentId);
       if (!parentId) throw new Error('Error creando cuenta del apoderado.');
 
-      const { error: profErr } = await supabase.from('profiles').insert([{
+      // Usar upsert explícito con onConflict para evitar crash de duplicate key
+      const { error: profErr } = await supabase.from('profiles').upsert([{
         id: parentId,
         full_name: newParentName.trim(),
         email: parentTempEmail,
         role: 'parent',
+        phone: newParentPhone.trim() || null,
         avatar_url: `https://api.dicebear.com/7.x/lorelei/svg?seed=${newParentName}`
-      }]);
+      }], { onConflict: 'id' });
+      
       if (profErr) throw profErr;
 
       await supabase.from('profiles').update({ parent_id: parentId }).eq('id', playerId);
-      return { name: newParentName.trim(), username: parentUsername, isNew: true };
+      return { name: newParentName.trim(), username: parentUsername, password: parentFinalPassword, isNew: true };
     }
 
     return null;
@@ -721,6 +768,61 @@ const Players = () => {
                     )}
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Éxito con Credenciales */}
+      <AnimatePresence>
+        {successCredentials && (
+          <div className="modal-overlay" onClick={() => setSuccessCredentials(null)}>
+            <motion.div 
+              className="player-modal glass" 
+              onClick={e => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              style={{ maxWidth: '450px', textAlign: 'center' }}
+            >
+              <div className="modal-header" style={{ justifyContent: 'center', borderBottom: 'none', paddingBottom: 0 }}>
+                <h2>🎉 ¡Registro <span className="text-sky">Exitoso</span>!</h2>
+              </div>
+              <div className="modal-body" style={{ paddingTop: '10px', display: 'block' }}>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>
+                  El jugador ha sido guardado correctamente. Por favor, anota o comparte estas credenciales de acceso:
+                </p>
+
+                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', textAlign: 'left', marginBottom: '15px' }}>
+                  <h4 style={{ color: 'var(--accent)', marginBottom: '10px', fontSize: '0.9rem' }}>⚽ Credenciales del Jugador</h4>
+                  <div style={{ fontSize: '0.95rem', marginBottom: '5px' }}><strong>Usuario:</strong> {successCredentials.playerUsername}</div>
+                  <div style={{ fontSize: '0.95rem', marginBottom: '5px' }}><strong>Clave:</strong> {successCredentials.playerPassword}</div>
+                  <div style={{ fontSize: '0.95rem' }}><strong>PIN (Enlace):</strong> {successCredentials.pin}</div>
+                </div>
+
+                {successCredentials.parent && successCredentials.parent.isNew && (
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', textAlign: 'left', marginBottom: '20px' }}>
+                    <h4 style={{ color: 'var(--accent)', marginBottom: '10px', fontSize: '0.9rem' }}>👨 Credenciales del Apoderado</h4>
+                    <div style={{ fontSize: '0.95rem', marginBottom: '5px' }}><strong>Usuario:</strong> {successCredentials.parent.username}</div>
+                    <div style={{ fontSize: '0.95rem' }}><strong>Clave:</strong> {successCredentials.parent.password}</div>
+                  </div>
+                )}
+
+                {successCredentials.parent && !successCredentials.parent.isNew && (
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px', textAlign: 'left', marginBottom: '20px' }}>
+                    <h4 style={{ color: 'var(--accent)', marginBottom: '10px', fontSize: '0.9rem' }}>👨 Apoderado Vinculado</h4>
+                    <div style={{ fontSize: '0.95rem' }}>El jugador fue vinculado al apoderado existente: <strong>{successCredentials.parent.name}</strong></div>
+                  </div>
+                )}
+
+                <button 
+                  className="btn-primary" 
+                  style={{ width: '100%', justifyContent: 'center' }}
+                  onClick={() => setSuccessCredentials(null)}
+                >
+                  Entendido
+                </button>
               </div>
             </motion.div>
           </div>

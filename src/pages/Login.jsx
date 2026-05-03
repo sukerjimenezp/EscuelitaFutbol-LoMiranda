@@ -19,7 +19,7 @@ const Login = () => {
   // Si ya está autenticado, analizar correo para decidir destino (Onboarding vs Dashboard)
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (user.email?.endsWith('@escuelita.local')) {
+      if (user.email?.endsWith('@lomiranda.cl')) {
         navigate('/onboarding');
       } else {
         navigate('/dashboard');
@@ -43,24 +43,32 @@ const Login = () => {
 
     try {
       let loginEmail = username.trim();
+      let authData, authError;
       
-      // Si el jugador escribió solo su usuario (ej: sjimenez), buscamos su correo real
+      // Si el jugador escribió solo su usuario (ej: sjimenez)
       if (!loginEmail.includes('@')) {
-        // Intentamos buscar en profiles si es que RLS nos lo permite
-        // Filtramos buscando el perfil donde el email temporal empiece con ese username
-        // o si hay algún campo específico. Si ya actualizó su correo, el email ya no tendrá el username.
-        // Lo más seguro es intentar loguearse con el correo fantasma y si falla, dar el error normal.
-        loginEmail = `${loginEmail}@escuelita.local`;
+        // Intento 1: Correo temporal (Aún no hace onboarding)
+        const tempEmail = `${loginEmail}@lomiranda.cl`;
+        const res1 = await supabase.auth.signInWithPassword({ email: tempEmail, password });
+        
+        if (res1.error && res1.error.message.includes('Invalid login credentials')) {
+          // Intento 2: Correo activo interno para menores (Ya hizo onboarding)
+          const activeEmail = `${loginEmail}@activo.lomiranda.cl`;
+          const res2 = await supabase.auth.signInWithPassword({ email: activeEmail, password });
+          authData = res2.data;
+          authError = res2.error;
+        } else {
+          authData = res1.data;
+          authError = res1.error;
+        }
+      } else {
+        // Ingresó con correo real directamente
+        const res = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+        authData = res.data;
+        authError = res.error;
       }
 
-      // Llamar directamente a supabase
-      let { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: password
-      });
-
-      // Si falló y el usuario había metido su username, quizás ya había cambiado su correo en Onboarding.
-      // Como no tenemos el correo a mano por front, le avisamos:
+      // Si falló y el usuario había metido su username, quizás ya había cambiado su correo real (mayor de 16)
       if (authError && !username.trim().includes('@')) {
          setError('Si ya configuraste tu cuenta, debes ingresar con tu Correo Real en lugar del nombre de usuario.');
          setLoading(false);

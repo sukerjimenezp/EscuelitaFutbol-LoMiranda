@@ -83,6 +83,7 @@ const Sidebar = ({ isMobileOpen, onClose }) => {
     superadmin: [
       { path: '/dashboard', icon: LayoutDashboard, label: 'Resumen' },
       { path: '/dashboard/usuarios', icon: Users, label: 'Directorio' },
+      { path: '/dashboard/apoderados', icon: Users, label: 'Apoderados' },
       { path: '/dashboard/perfiles', icon: Users, label: 'Crear Perfiles' },
       { path: '/dashboard/categorias', icon: Trophy, label: 'Categorías' },
       { path: '/dashboard/asistencia', icon: ClipboardList, label: 'Asistencia' },
