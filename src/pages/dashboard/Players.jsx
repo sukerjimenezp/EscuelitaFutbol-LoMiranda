@@ -119,11 +119,15 @@ const Players = () => {
 
   const handleInputChange = (field, value) => {
     setNewPlayer(prev => {
+      let sanitizedValue = value;
+      if (field === 'full_name') sanitizedValue = value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '').substring(0, 80);
+      if (field === 'dorsal') sanitizedValue = value.toString().substring(0, 2);
+      
       const updated = { 
         ...prev, 
         [field]: ['full_name', 'position', 'category_id', 'birth_date', 'avatar_url', 'email'].includes(field) 
-          ? value 
-          : (parseInt(value) || 0)
+          ? sanitizedValue 
+          : (parseInt(sanitizedValue) || 0)
       };
 
       // Si cambia la fecha de nacimiento, sugerimos una categoría automáticamente
@@ -649,6 +653,7 @@ const Players = () => {
                         placeholder="Ej: Mateo Miranda"
                         value={newPlayer.full_name}
                         onChange={(e) => handleInputChange('full_name', e.target.value)}
+                        maxLength={80}
                       />
                     </div>
                     <div className="field">
@@ -673,6 +678,7 @@ const Players = () => {
                         onChange={(e) => handleInputChange('dorsal', e.target.value)}
                         placeholder="Ej: 10"
                         min="1" max="99"
+                        maxLength={2}
                       />
                     </div>
                   </div>
@@ -737,11 +743,11 @@ const Players = () => {
                       <div className="parent-new-fields">
                         <div className="field">
                           <label>Nombre Apoderado</label>
-                          <input type="text" placeholder="Ej: Pedro Miranda" value={newParentName} onChange={e => setNewParentName(e.target.value)} />
+                          <input type="text" placeholder="Ej: Pedro Miranda" value={newParentName} onChange={e => setNewParentName(e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '').substring(0, 80))} maxLength={80} />
                         </div>
                         <div className="field">
                           <label>Teléfono <small>(opcional)</small></label>
-                          <input type="tel" placeholder="+56 9 1234 5678" value={newParentPhone} onChange={e => setNewParentPhone(e.target.value)} />
+                          <input type="tel" placeholder="+56 9 1234 5678" value={newParentPhone} onChange={e => setNewParentPhone(e.target.value.replace(/[^0-9+\s]/g, '').substring(0, 20))} maxLength={20} />
                         </div>
                         {newParentName.trim() && (
                           <div className="parent-preview-credentials">

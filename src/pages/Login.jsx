@@ -134,9 +134,10 @@ const Login = () => {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value.trim().toLowerCase())}
               placeholder="Ej: sjimenez o tu@correo.cl"
               required
+              maxLength={50}
             />
           </div>
 
@@ -146,9 +147,10 @@ const Login = () => {
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value.trim())}
                 placeholder="••••••••"
                 required
+                maxLength={100}
               />
               <button 
                 type="button" 

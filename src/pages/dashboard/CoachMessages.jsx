@@ -239,8 +239,9 @@ const CoachMessages = () => {
                   <input 
                     type="text" 
                     value={feedback.title} 
-                    onChange={e => setFeedback({...feedback, title: e.target.value})}
+                    onChange={e => setFeedback({...feedback, title: e.target.value.substring(0, 50).toUpperCase()})}
                     placeholder="Ej: ¡BUEN TRABAJO!"
+                    maxLength={50}
                   />
                 </div>
 
@@ -249,8 +250,9 @@ const CoachMessages = () => {
                   <textarea 
                     rows={4}
                     value={feedback.message}
-                    onChange={e => setFeedback({...feedback, message: e.target.value})}
+                    onChange={e => setFeedback({...feedback, message: e.target.value.substring(0, 300)})}
                     placeholder="Escribe aquí tu análisis o palabras de aliento..."
+                    maxLength={300}
                   />
                 </div>
 
@@ -260,9 +262,10 @@ const CoachMessages = () => {
                     <input 
                       type="text" 
                       value={newPoint}
-                      onChange={setNewPoint && (e => setNewPoint(e.target.value))}
+                      onChange={e => setNewPoint(e.target.value.substring(0, 100))}
                       placeholder="Ej: Excelente esfuerzo hoy"
                       onKeyPress={e => e.key === 'Enter' && addPoint()}
+                      maxLength={100}
                     />
                     <button className="add-point-btn" onClick={addPoint}><Plus size={20} /></button>
                   </div>
@@ -283,7 +286,8 @@ const CoachMessages = () => {
                   <input 
                     type="text" 
                     value={feedback.footer} 
-                    onChange={e => setFeedback({...feedback, footer: e.target.value})}
+                    onChange={e => setFeedback({...feedback, footer: e.target.value.substring(0, 50)})}
+                    maxLength={50}
                   />
                 </div>
 

@@ -408,7 +408,8 @@ const MovementModal = ({ onClose, onSave, initialData }) => {
               type="text" 
               placeholder="Ej: Pago arbitraje, Cuota Juan, etc."
               value={newMovement.description}
-              onChange={e => setNewMovement({ ...newMovement, description: e.target.value })}
+              onChange={e => setNewMovement({ ...newMovement, description: e.target.value.substring(0, 150) })}
+              maxLength={150}
               style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px' }}
             />
           </div>
@@ -420,7 +421,8 @@ const MovementModal = ({ onClose, onSave, initialData }) => {
                 type="number" 
                 placeholder="5000"
                 value={newMovement.amount}
-                onChange={e => setNewMovement({ ...newMovement, amount: e.target.value })}
+                onChange={e => setNewMovement({ ...newMovement, amount: e.target.value.substring(0, 10).replace(/[^0-9]/g, '') })}
+                maxLength={10}
                 style={{ padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '10px' }}
               />
             </div>

@@ -169,7 +169,8 @@ const CategoriesDash = () => {
                         type="text" 
                         placeholder="Ej: Sub-18"
                         value={currentCat.name}
-                        onChange={(e) => setCurrentCat({...currentCat, name: e.target.value})}
+                        onChange={(e) => setCurrentCat({...currentCat, name: e.target.value.substring(0, 50)})}
+                        maxLength={50}
                       />
                     </div>
                     <div className="field">
@@ -178,7 +179,8 @@ const CategoriesDash = () => {
                         type="text" 
                         placeholder="Ej: Juvenil, Mini, etc."
                         value={currentCat.label || ''}
-                        onChange={(e) => setCurrentCat({...currentCat, label: e.target.value})}
+                        onChange={(e) => setCurrentCat({...currentCat, label: e.target.value.substring(0, 30)})}
+                        maxLength={30}
                       />
                     </div>
                   </div>
@@ -190,7 +192,8 @@ const CategoriesDash = () => {
                         type="text" 
                         placeholder="Ej: 17-18 años"
                         value={currentCat.age_range || ''}
-                        onChange={(e) => setCurrentCat({...currentCat, age_range: e.target.value})}
+                        onChange={(e) => setCurrentCat({...currentCat, age_range: e.target.value.substring(0, 30)})}
+                        maxLength={30}
                       />
                     </div>
                     <div className="field">
