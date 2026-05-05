@@ -208,7 +208,7 @@ const Players = () => {
         birth_date: newPlayer.birth_date || null,
         category_id: newPlayer.category_id,
         role: 'player',
-        avatar_url: newPlayer.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(newPlayer.full_name)}&top=shortHair,shortCurly,shortFlat,shortWaved,shortPiky,shaggy,shaggyMullet&accessoriesProbability=0&facialHairProbability=0&backgroundColor=071428,1e293b,38bdf8&backgroundType=gradientLinear`,
+        avatar_url: newPlayer.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(newPlayer.full_name)}&top=shortHair,shortCurly,shortFlat,shortWaved,shortPiky,shaggy,shaggyMullet&accessoriesProbability=0&facialHairProbability=0&backgroundColor=071428`,
         email: newPlayer.email || `${newPlayer.full_name.replace(/\s/g, '').toLowerCase()}@escuela.cl`
       };
 
@@ -345,7 +345,7 @@ const Players = () => {
             physical: playerToSave.physical,
             birth_date: playerToSave.birth_date,
             email: tempEmail,
-            avatar_url: playerToSave.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(playerToSave.full_name)}&top=shortHair,shortCurly,shortFlat,shortWaved,shortPiky,shaggy,shaggyMullet&accessoriesProbability=0&facialHairProbability=0&backgroundColor=071428,1e293b,38bdf8&backgroundType=gradientLinear`
+            avatar_url: playerToSave.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(playerToSave.full_name)}&top=shortHair,shortCurly,shortFlat,shortWaved,shortPiky,shaggy,shaggyMullet&accessoriesProbability=0&facialHairProbability=0&backgroundColor=071428`
           }], { onConflict: 'id' });
 
         if (error) {
@@ -639,7 +639,7 @@ const Players = () => {
                       <span>{overall}</span>
                       <small>{newPlayer.position}</small>
                     </div>
-                    <img src={newPlayer.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(newPlayer.full_name || 'default')}&top=shortHair,shortCurly,shortFlat,shortWaved,shortPiky,shaggy,shaggyMullet&accessoriesProbability=0&facialHairProbability=0&backgroundColor=071428,1e293b,38bdf8&backgroundType=gradientLinear`} alt="Preview" />
+                    <img src={newPlayer.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(newPlayer.full_name || 'default')}&top=shortHair,shortCurly,shortFlat,shortWaved,shortPiky,shaggy,shaggyMullet&accessoriesProbability=0&facialHairProbability=0&backgroundColor=071428`} alt="Preview" />
                     <div className="preview-name">{newPlayer.full_name || 'NOMBRE JUGADOR'} {newPlayer.dorsal ? `(#${newPlayer.dorsal})` : ''}</div>
                   </div>
                 </div>
