@@ -16,6 +16,7 @@ import './DashboardLayout.css';
 const DashboardLayout = () => {
   const { user } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
@@ -26,6 +27,32 @@ const DashboardLayout = () => {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
+
+  // Cargar notificaciones reales (Próximos eventos)
+  useEffect(() => {
+    const fetchRealNotifications = async () => {
+      try {
+        const { data } = await supabase
+          .from('events')
+          .select('*')
+          .gte('date', new Date().toISOString().split('T')[0])
+          .order('date', { ascending: true })
+          .limit(5);
+        
+        if (data) {
+          setNotifications(data.map(ev => ({
+            id: ev.id,
+            title: ev.type === 'match' ? '⚽ Próximo Partido' : '🏃 Entrenamiento',
+            desc: ev.title,
+            time: ev.date
+          })));
+        }
+      } catch (err) {
+        console.warn('Error cargando notificaciones:', err);
+      }
+    };
+    fetchRealNotifications();
+  }, []);
 
   // Obtener el nombre de la página basado en la ruta
   const getPageTitle = () => {
@@ -102,7 +129,9 @@ const DashboardLayout = () => {
                   onClick={() => setShowNotifications(!showNotifications)}
                 >
                   <Bell size={20} />
-                  <span className="notify-badge">3</span>
+                  {notifications.length > 0 && (
+                    <span className="notify-badge">{notifications.length}</span>
+                  )}
                 </button>
                 
                 <AnimatePresence>
@@ -115,18 +144,19 @@ const DashboardLayout = () => {
                     >
                       <div className="dropdown-header"> Notificaciones </div>
                       <div className="notification-list">
-                        <div className="notif-item">
-                          <strong>⚽ Nuevo entrenamiento</strong>
-                          <p>Mañana a las 10:00 AM</p>
-                        </div>
-                        <div className="notif-item">
-                          <strong>💰 Pago recibido</strong>
-                          <p>Cuota Marzo - Mateo M.</p>
-                        </div>
-                        <div className="notif-item">
-                          <strong>📸 Nueva foto en galería</strong>
-                          <p>Torneo Rancagua</p>
-                        </div>
+                        {notifications.length > 0 ? (
+                          notifications.map(n => (
+                            <div key={n.id} className="notif-item">
+                              <strong>{n.title}</strong>
+                              <p>{n.desc}</p>
+                              <small>{n.time}</small>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="notif-empty">
+                            <p>No tienes notificaciones pendientes</p>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   )}

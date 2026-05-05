@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../../data/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Search, Trophy, Shield, Star, Zap, Target, Activity, MessageCircle, Heart, Medal, Flame } from 'lucide-react';
+import { Search, Trophy, Shield, Star, Zap, Target, Activity, MessageCircle, Heart, Medal, Flame, Users } from 'lucide-react';
 import logo from '../../assets/logo.jpg';
 import jerseyImg from '../../images/camiseta-transparente.png';
 import { showToast } from '../../components/Toast';
@@ -72,9 +72,14 @@ const Stats = () => {
           }));
           setPlayers(adapted);
           
-          // Auto-seleccionar si no hay uno o si cambió la lista
-          if (adapted.length > 0 && !selectedPlayer) {
-            setSelectedPlayer(adapted[0]);
+          // Selección inteligente: Priorizar al usuario logeado si es jugador
+          if (adapted.length > 0) {
+            const myProfile = adapted.find(p => p.id === user?.id);
+            if (isPlayer && myProfile) {
+              setSelectedPlayer(myProfile);
+            } else if (!selectedPlayer) {
+              setSelectedPlayer(adapted[0]);
+            }
           }
         }
       } catch (err) {
@@ -99,10 +104,15 @@ const Stats = () => {
   }, [players, searchTerm, isPlayer, isParent]);
 
   useEffect(() => {
-    if ((isPlayer || isParent) && filteredPlayers.length > 0) {
-      setSelectedPlayer(filteredPlayers[0]);
+    if (filteredPlayers.length > 0) {
+      const myProfile = filteredPlayers.find(p => p.id === user?.id);
+      if (isPlayer && myProfile) {
+        setSelectedPlayer(myProfile);
+      } else if (!selectedPlayer) {
+        setSelectedPlayer(filteredPlayers[0]);
+      }
     }
-  }, [isPlayer, isParent, filteredPlayers]);
+  }, [isPlayer, filteredPlayers, user?.id]);
 
   const advancedStats = useMemo(() => {
     if(!selectedPlayer) return null;
@@ -202,25 +212,39 @@ const Stats = () => {
                 </div>
               </div>
 
-              {/* Columna Derecha: Mensajes del DT */}
+              {/* Columna Derecha: Mensajes del DT (Rediseñada estilo Chat) */}
               <div className="kid-feedback-col">
-                <h3 className="section-title dt-color"><MessageCircle size={24} /> EL PROFE DICE</h3>
-                
-                <div className="dt-chat-bubble glass-panel highlight-border">
-                  <div className="dt-header">
-                    <Trophy size={20} color="#fbbf24" />
-                    <strong>¡Buen Trabajo!</strong>
+                <div className="coach-feedback-container vertical-mode">
+                  <div className="coach-avatar-wrapper">
+                    <div className="coach-avatar-circle">
+                      <Users size={32} color="white" />
+                      <div className="online-indicator"></div>
+                    </div>
+                    <span className="coach-name">EL PROFE</span>
                   </div>
-                  <p className="dt-greeting">Hola {selectedPlayer.name.split(' ')[0]}, vi tus últimos partidos y miedos en la cancha, ¡has mejorado mucho!</p>
-                  
-                  <ul className="dt-notes-list">
-                    {advancedStats.dtNotes.map((note, i) => (
-                      <li key={i}><Heart size={14} color="#ef4444" /> {note}</li>
-                    ))}
-                  </ul>
-                  
-                  <div className="dt-signature">
-                    <Medal size={16} /> ¡A seguir divirtiéndonos!
+
+                  <div className="coach-bubble glass highlight-border">
+                    <div className="bubble-header">
+                      <Trophy size={18} fill="#fbbf24" color="#fbbf24" />
+                      <span className="bubble-title">¡Buen Trabajo!</span>
+                    </div>
+                    
+                    <p className="bubble-text">"Hola {selectedPlayer.name.split(' ')[0]}, vi tus últimos partidos y miedos en la cancha, ¡has mejorado mucho!"</p>
+                    
+                    <div className="missions-grid stats-mode">
+                      {advancedStats.dtNotes.map((note, i) => (
+                        <div key={i} className="mission-item glass">
+                          <div className="mission-icon">
+                            <Heart size={14} fill="#ef4444" color="#ef4444" />
+                          </div>
+                          <span className="mission-text">{note}</span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="dt-signature">
+                      <Medal size={16} /> ¡A seguir divirtiéndonos!
+                    </div>
                   </div>
                 </div>
               </div>

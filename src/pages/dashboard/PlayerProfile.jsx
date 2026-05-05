@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../data/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { Lock, Unlock, Zap, Trophy, Shield, Star, CheckCircle, MessageSquare, Heart, RefreshCw } from 'lucide-react';
+import { Users, Lock, Unlock, Zap, Trophy, Shield, Star, CheckCircle, MessageSquare, Heart, RefreshCw } from 'lucide-react';
 import { showToast, showConfirm } from '../../components/Toast';
 import './PlayerProfile.css';
 
@@ -140,20 +140,17 @@ const PlayerProfile = ({ playerId }) => {
       
       {/* BANNER PRINCIPAL CON PUNTOS ACUMULADOS */}
       <div className="gamer-profile-banner">
+        {/* COLUMNA 1: CARTA */}
         <div className="banner-left">
           <PlayerCard player={fifaStats} />
         </div>
 
-        <div className="banner-right">
+        {/* COLUMNA 2: INFO CENTRAL (Ocupa el espacio vacío) */}
+        <div className="banner-center">
           <div className="gp-user-info">
             <h1>{displayUser?.full_name}</h1>
             <div className="gp-badges">
               <span className="gp-role-badge"><Zap size={16} /> JUGADOR ACTIVO</span>
-              <div className="points-display-premium glass">
-                <Trophy size={20} className="text-yellow" />
-                <span className="points-val">{displayUser?.points || 0}</span>
-                <span className="points-lbl">PUNTOS</span>
-              </div>
             </div>
           </div>
 
@@ -174,28 +171,50 @@ const PlayerProfile = ({ playerId }) => {
             </div>
           </div>
         </div>
+
+        {/* COLUMNA 3: PUNTOS */}
+        <div className="banner-right">
+          <div className="points-display-premium glass">
+            <Trophy size={32} className="text-yellow" />
+            <div className="points-text-group">
+              <span className="points-val">{displayUser?.points || 0}</span>
+              <span className="points-lbl">PUNTOS</span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* SECCIÓN: EL PROFE DICE */}
+      {/* SECCIÓN: EL PROFE DICE (Rediseñada estilo Chat) */}
       <div className="coach-feedback-section">
-        <div className="coach-feedback-header">
-          <MessageSquare size={24} className="text-secondary-400" />
-          <h2 className="title-yellow">EL PROFE DICE</h2>
-        </div>
-
-        <div className="coach-feedback-card glass">
-          <div className="card-top">
-            <Star size={20} fill="#fbbf24" color="#fbbf24" />
-            <span className="feedback-badge-top">{feedback.title}</span>
+        <div className="coach-feedback-container">
+          {/* Avatar del Profe */}
+          <div className="coach-avatar-wrapper">
+            <div className="coach-avatar-circle">
+              <Users size={40} color="white" />
+              <div className="online-indicator"></div>
+            </div>
+            <span className="coach-name">EL PROFE</span>
           </div>
-          <p className="main-coach-msg">{feedback.message}</p>
-          <div className="specific-points-list">
-            {feedback.points && feedback.points.map((point, index) => (
-              <div key={index} className="point-item glass">
-                <Heart size={16} fill="#ef4444" color="#ef4444" />
-                <span>{point}</span>
-              </div>
-            ))}
+
+          {/* Burbuja de Mensaje */}
+          <div className="coach-bubble glass">
+            <div className="bubble-header">
+              <Star size={18} fill="#fbbf24" color="#fbbf24" />
+              <span className="bubble-title">{feedback.title}</span>
+            </div>
+            
+            <p className="bubble-text">"{feedback.message}"</p>
+            
+            <div className="missions-grid">
+              {feedback.points && feedback.points.map((point, index) => (
+                <div key={index} className="mission-item glass">
+                  <div className="mission-icon">
+                    <Zap size={14} fill="#fbbf24" color="#fbbf24" />
+                  </div>
+                  <span className="mission-text">{point}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

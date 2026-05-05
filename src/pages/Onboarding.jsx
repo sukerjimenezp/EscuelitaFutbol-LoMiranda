@@ -24,8 +24,8 @@ const Onboarding = () => {
     if (!isAuthenticated) {
       navigate('/login');
     }
-    // Si ya tiene un correo maduro o activo interno, fuera
-    if (user && !user.email?.endsWith('@lomiranda.cl')) {
+    // Si ya tiene el onboarding completado o un correo real, fuera
+    if (user && (user.user_metadata?.onboarded || !user.email?.endsWith('@lomiranda.cl'))) {
       navigate('/dashboard');
     }
   }, [isAuthenticated, user, navigate]);
@@ -72,16 +72,17 @@ const Onboarding = () => {
     setLoading(true);
 
     try {
-      let targetEmail = email;
-      let updatePayload = {};
+      let updatePayload = {
+        password: isMinor ? password + '_pin' : password,
+        data: { onboarded: true }
+      };
+      
+      let targetEmail = user.email;
 
-      if (isMinor) {
-        // Para menores, cambiamos el dominio a "activo" para que no vuelva al onboarding
-        // Mantiene el prefijo del usuario (ej. sjimenez)
-        targetEmail = `${user.email.split('@')[0]}@activo.lomiranda.cl`;
-        updatePayload = { email: targetEmail, password: password };
-      } else {
-        updatePayload = { email: targetEmail, password: password };
+      if (!isMinor) {
+        // Solo adultos configuran un correo real
+        targetEmail = email;
+        updatePayload.email = targetEmail;
       }
 
       // 1. Actualizar cuenta Auth de Supabase

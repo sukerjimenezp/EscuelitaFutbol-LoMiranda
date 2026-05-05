@@ -63,23 +63,34 @@ const Dashboard = () => {
           { count: catsCount },
           { data: paymentsData },
           { count: myPlantillaCount },
-          { data: eventsData }
+          { data: eventsData },
+          { data: attendanceData }
         ] = await Promise.all([
           safeQuery(supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'player').neq('is_active', false)),
           safeQuery(supabase.from('categories').select('*', { count: 'exact', head: true })),
           safeQuery(supabase.from('payments').select('amount').eq('type', 'income')),
           user?.category_id ? safeQuery(supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('category_id', user.category_id).eq('role', 'player').neq('is_active', false)) : Promise.resolve({ count: 0 }),
-          safeQuery(supabase.from('events').select('*').gte('date', currentDate.toISOString().split('T')[0]).order('date').limit(1))
+          safeQuery(supabase.from('events').select('*').gte('date', currentDate.toISOString().split('T')[0]).order('date').limit(1)),
+          safeQuery(supabase.from('attendance').select('status'))
         ]);
 
         const monthlyIncome = (paymentsData || []).reduce((sum, p) => sum + p.amount, 0);
+        
+        // Cálculo de asistencia real
+        let attendancePercent = 0;
+        if (attendanceData && attendanceData.length > 0) {
+          const total = attendanceData.length;
+          const present = attendanceData.filter(a => a.status === 'present' || a.status === 'match').length;
+          attendancePercent = Math.round((present / total) * 100);
+        }
 
         setStats({
           totalPlayers: playersCount || 0,
           totalCategories: catsCount || 0,
           monthlyIncome,
           myPlantilla: myPlantillaCount || 0,
-          nextEvent: (eventsData && eventsData[0]) || null
+          nextEvent: (eventsData && eventsData[0]) || null,
+          avgAttendance: attendancePercent || 0
         });
       } catch (err) {
         console.error('Error fetching dashboard stats:', err);
@@ -108,8 +119,8 @@ const Dashboard = () => {
       case 'dt':
         return (
           <>
-            <StatCard icon={<Users />} label="Mi Plantilla" value={loading ? '...' : stats.myPlantilla} color="sky" />
-            <StatCard icon={<Activity />} label="Asistencia Media" value="85%" color="green" />
+            <StatCard icon={<Users />} label="Jugadores Club" value={loading ? '...' : stats.totalPlayers} color="sky" />
+            <StatCard icon={<Activity />} label="Asistencia Media" value={loading ? '...' : `${stats.avgAttendance}%`} color="green" />
             <StatCard icon={<CalendarIcon />} label="Próxima Clase" value={nextEvent ? format(parseISO(nextEvent.date), 'dd MMM', { locale: es }) : 'No agendada'} color="yellow" />
           </>
         );

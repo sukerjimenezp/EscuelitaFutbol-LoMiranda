@@ -31,6 +31,7 @@ import { format, subMonths, isSameMonth, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Info, AlertCircle } from 'lucide-react';
 import { showToast } from '../../components/Toast';
+import { useAuth } from '../../data/AuthContext';
 import './Finance.css';
 
 const Finance = () => {
@@ -38,6 +39,7 @@ const Finance = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingMovement, setEditingMovement] = useState(null);
+  const { isDT } = useAuth();
 
   const fetchFinances = async () => {
     setLoading(true);
@@ -214,12 +216,24 @@ const Finance = () => {
             <Download size={18} />
             Exportar Excel
           </button>
-          <button className="btn-primary" onClick={() => { setEditingMovement(null); setShowModal(true); }}>
-            <Plus size={18} />
-            Nuevo Movimiento
-          </button>
+          {!isDT && (
+            <button className="btn-primary" onClick={() => { setEditingMovement(null); setShowModal(true); }}>
+              <Plus size={18} />
+              Nuevo Movimiento
+            </button>
+          )}
         </div>
       </div>
+
+      {isDT && (
+        <div className="glass" style={{ padding: '15px 20px', borderRadius: '16px', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '15px', border: '1px solid var(--sky-400)', background: 'rgba(56, 189, 248, 0.05)' }}>
+          <ShieldCheck size={24} className="text-sky" />
+          <div>
+            <h4 style={{ margin: 0, color: 'var(--sky-400)', fontSize: '0.95rem', fontWeight: 800 }}>🛡️ Modo de Consulta Activo</h4>
+            <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>Tu perfil de Director Técnico permite visualizar el balance y exportar reportes. La creación de movimientos es exclusiva de Administración.</p>
+          </div>
+        </div>
+      )}
 
       <div className="finance-summary-grid">
         <div className="finance-card glass income">
@@ -331,9 +345,11 @@ const Finance = () => {
                       <ImageIcon size={18} />
                     </a>
                   )}
-                  <button onClick={() => { setEditingMovement(item); setShowModal(true); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }} title="Editar Movimiento">
-                    <Edit size={18} />
-                  </button>
+                  {!isDT && (
+                    <button onClick={() => { setEditingMovement(item); setShowModal(true); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }} title="Editar Movimiento">
+                      <Edit size={18} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

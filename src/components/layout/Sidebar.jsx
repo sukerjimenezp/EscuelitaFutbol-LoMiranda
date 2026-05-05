@@ -99,7 +99,9 @@ const Sidebar = ({ isMobileOpen, onClose }) => {
     ],
     dt: [
       { path: '/dashboard', icon: LayoutDashboard, label: 'Resumen' },
-      { path: '/dashboard/usuarios', icon: Users, label: 'Mi Plantilla' },
+      { path: '/dashboard/usuarios', icon: Users, label: 'Directorio' },
+      { path: '/dashboard/apoderados', icon: Users, label: 'Apoderados' },
+      { path: '/dashboard/categorias', icon: Trophy, label: 'Categorías' },
       { path: '/dashboard/asistencia', icon: ClipboardList, label: 'Pase de Lista' },
       { path: '/dashboard/recompensas', icon: Trophy, label: 'Logros & Skins' },
       { path: '/dashboard/galeria', icon: ImageIcon, label: 'Galería' },

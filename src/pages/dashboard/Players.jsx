@@ -21,7 +21,7 @@ import { showToast, showConfirm } from '../../components/Toast';
 const Players = () => {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('sub10');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingPlayerId, setEditingPlayerId] = useState(null);
@@ -53,17 +53,24 @@ const Players = () => {
   const [overall, setOverall] = useState(50);
 
   const fetchPlayers = useCallback(async () => {
+    if (!selectedCategory) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('category_id', selectedCategory)
-      .eq('role', 'player')
-      .order('full_name');
-    
-    if (error) console.error('Error fetching players:', error);
-    else setPlayers(data || []);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('category_id', selectedCategory)
+        .eq('role', 'player')
+        .order('full_name');
+      
+      if (error) throw error;
+      setPlayers(data || []);
+    } catch (error) {
+      console.error('Error fetching players:', error);
+      showToast('Error al cargar jugadores: ' + error.message, 'error');
+    } finally {
+      setLoading(false);
+    }
   }, [selectedCategory]);
 
   useEffect(() => {
@@ -79,8 +86,18 @@ const Players = () => {
   };
 
   const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('*').order('name');
-    if (data) setCategoriesList(data);
+    try {
+      const { data, error } = await supabase.from('categories').select('*').order('name');
+      if (error) throw error;
+      if (data && data.length > 0) {
+        setCategoriesList(data);
+        if (!selectedCategory) {
+          setSelectedCategory(data[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
   };
 
   useEffect(() => {
@@ -531,9 +548,20 @@ const Players = () => {
                   <span className="player-name">
                     {player.full_name}
                     {player.link_pin && (
-                      <span className="pin-badge" style={{ marginLeft: '8px', fontSize: '10px', background: 'var(--bg-glass)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-glass)' }}>
-                        PIN: {player.link_pin}
-                      </span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', marginLeft: '8px' }}>
+                        <span className="pin-badge" style={{ fontSize: '10px', background: 'var(--bg-glass)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-glass)' }}>
+                          PIN: {player.link_pin}
+                        </span>
+                        <a 
+                          href={`https://wa.me/?text=${encodeURIComponent(`⚽ ¡Hola! Te envío los datos de acceso para *${player.full_name}* en la App de la Escuelita Lo Miranda:%0A%0A👤 *Usuario:* ${player.email.split('@')[0]}%0A🔑 *Clave:* ${player.email.split('@')[0]}%0A📌 *PIN de Vinculación:* ${player.link_pin}%0A%0A¡Nos vemos en la cancha!`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#25D366', display: 'flex', alignItems: 'center' }}
+                          title="Compartir por WhatsApp"
+                        >
+                          <svg size={14} viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.148-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.63 1.438h.008c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                        </a>
+                      </div>
                     )}
                   </span>
                 </div>
@@ -816,13 +844,19 @@ const Players = () => {
                   </div>
                 )}
 
-                <button 
-                  className="btn-primary" 
-                  style={{ width: '100%', justifyContent: 'center' }}
-                  onClick={() => setSuccessCredentials(null)}
-                >
-                  Entendido
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button className="btn-secondary-outline" onClick={() => setSuccessCredentials(null)} style={{ flex: 1 }}>Cerrar</button>
+                  <a 
+                    href={`https://wa.me/?text=${encodeURIComponent(`⚽ ¡Hola! Te envío los datos de acceso para *${successCredentials.playerName}* en la App de la Escuelita Lo Miranda:%0A%0A👤 *Usuario:* ${successCredentials.playerUsername}%0A🔑 *Clave:* ${successCredentials.playerPassword}%0A📌 *PIN de Vinculación:* ${successCredentials.pin}${successCredentials.parent && successCredentials.parent.isNew ? `%0A%0A👨 *Apoderado:* ${successCredentials.parent.username}%0A🔑 *Clave:* ${successCredentials.parent.password}` : ''}%0A%0A¡Nos vemos en la cancha!`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary" 
+                    style={{ flex: 1, background: '#25D366', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  >
+                    <svg size={18} viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.148-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.72.94 3.659 1.437 5.63 1.438h.008c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+                    WhatsApp
+                  </a>
+                </div>
               </div>
             </motion.div>
           </div>

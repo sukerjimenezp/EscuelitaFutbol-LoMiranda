@@ -156,11 +156,11 @@ export const AuthProvider = ({ children }) => {
       loading,
       updateUserAvatar,
       isAuthenticated: !!user,
-      isAdmin:     user?.role === 'superadmin',
-      isDT:        user?.role === 'dt',
-      isContador:  user?.role === 'contador',
-      isParent:    user?.role === 'parent',
-      isPlayer:    user?.role === 'player'
+      isAdmin:     user?.role?.toLowerCase() === 'superadmin' || user?.role?.toLowerCase() === 'admin',
+      isDT:        user?.role?.toLowerCase() === 'dt' || user?.role?.toLowerCase() === 'director tecnico',
+      isContador:  user?.role?.toLowerCase() === 'contador',
+      isParent:    user?.role?.toLowerCase() === 'parent',
+      isPlayer:    user?.role?.toLowerCase() === 'player'
     }}>
       {children}
     </AuthContext.Provider>

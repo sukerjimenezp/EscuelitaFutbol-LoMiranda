@@ -19,10 +19,13 @@ const Login = () => {
   // Si ya está autenticado, analizar correo para decidir destino (Onboarding vs Dashboard)
   useEffect(() => {
     if (isAuthenticated && user) {
-      if (user.email?.endsWith('@lomiranda.cl')) {
-        navigate('/onboarding');
-      } else {
+      const isStaff = user.user_metadata?.role === 'admin' || user.user_metadata?.role === 'coach';
+      
+      // Ir a Dashboard si: ya hizo onboarding, NO es correo de la escuela, o es Staff (Admin/Profe)
+      if (user.user_metadata?.onboarded || !user.email?.endsWith('@lomiranda.cl') || isStaff) {
         navigate('/dashboard');
+      } else {
+        navigate('/onboarding');
       }
     }
   }, [isAuthenticated, user, navigate]);
@@ -47,33 +50,49 @@ const Login = () => {
       
       // Si el jugador escribió solo su usuario (ej: sjimenez)
       if (!loginEmail.includes('@')) {
-        // Intento 1: Correo temporal (Aún no hace onboarding)
         const tempEmail = `${loginEmail}@lomiranda.cl`;
-        const res1 = await supabase.auth.signInWithPassword({ email: tempEmail, password });
         
-        if (res1.error && res1.error.message.includes('Invalid login credentials')) {
-          // Intento 2: Correo activo interno para menores (Ya hizo onboarding)
-          const activeEmail = `${loginEmail}@activo.lomiranda.cl`;
-          const res2 = await supabase.auth.signInWithPassword({ email: activeEmail, password });
-          authData = res2.data;
-          authError = res2.error;
-        } else {
-          authData = res1.data;
-          authError = res1.error;
+        // INTENTO 1: Cuenta temporal inicial (password = username)
+        let res = await supabase.auth.signInWithPassword({ email: tempEmail, password });
+
+        // INTENTO 2: Cuenta de menor ya configurada (usa sufijo _pin)
+        if (res.error && res.error.message.includes('Invalid login credentials')) {
+          res = await supabase.auth.signInWithPassword({ 
+            email: tempEmail, 
+            password: password + '_pin' 
+          });
         }
+
+        // INTENTO 3: Cuenta de menor con dominio antiguo @activo (compatibilidad)
+        if (res.error && res.error.message.includes('Invalid login credentials')) {
+          res = await supabase.auth.signInWithPassword({ 
+            email: `${loginEmail}@activo.lomiranda.cl`, 
+            password: password + '_pin' 
+          });
+        }
+
+        authData = res.data;
+        authError = res.error;
       } else {
         // Ingresó con correo real directamente
-        const res = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+        let res = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+
+        // Si falla y es un dominio de la escuela, intentar con el sufijo _pin (para niños que ya lo tienen configurado)
+        if (res.error && (loginEmail.endsWith('@activo.lomiranda.cl') || loginEmail.endsWith('@lomiranda.cl'))) {
+          const secondTry = await supabase.auth.signInWithPassword({ 
+            email: loginEmail, 
+            password: password + '_pin' 
+          });
+          if (!secondTry.error) {
+            res = secondTry;
+          }
+        }
+        
         authData = res.data;
         authError = res.error;
       }
 
-      // Si falló y el usuario había metido su username, quizás ya había cambiado su correo real (mayor de 16)
-      if (authError && !username.trim().includes('@')) {
-         setError('Si ya configuraste tu cuenta, debes ingresar con tu Correo Real en lugar del nombre de usuario.');
-         setLoading(false);
-         return;
-      } else if (authError) {
+      if (authError) {
         // Traducir errores comunes
         let msg = authError.message;
         if (msg.includes('Invalid login')) msg = 'Usuario o contraseña incorrectos.';

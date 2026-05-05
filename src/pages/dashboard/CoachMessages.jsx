@@ -21,6 +21,7 @@ const CoachMessages = () => {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoriesList, setCategoriesList] = useState([]);
+  const [isBulkMode, setIsBulkMode] = useState(false);
   
   const [feedback, setFeedback] = useState({
     title: '¡BUEN TRABAJO!',
@@ -83,20 +84,46 @@ const CoachMessages = () => {
   }, [selectedPlayer, fetchPlayerFeedback]);
 
   const handleSave = async () => {
-    if (!selectedPlayer) return;
+    if (!selectedPlayer && !isBulkMode) return;
     
-    const { error } = await supabase
-      .from('feedback')
-      .upsert({
-        player_id: selectedPlayer.id,
-        title: feedback.title,
-        message: feedback.message,
-        points: feedback.points,
-        footer: feedback.footer
-      }, { onConflict: 'player_id' });
+    setLoading(true);
+    try {
+      if (isBulkMode) {
+        // MODO MASIVO: Enviar a todos los jugadores de la categoría actual
+        const bulkData = players.map(p => ({
+          player_id: p.id,
+          title: feedback.title,
+          message: feedback.message,
+          points: feedback.points,
+          footer: feedback.footer
+        }));
 
-    if (error) alert('Error: ' + error.message);
-    else alert(`Mensaje para ${selectedPlayer.full_name} guardado con éxito.`);
+        const { error } = await supabase
+          .from('feedback')
+          .upsert(bulkData, { onConflict: 'player_id' });
+
+        if (error) throw error;
+        alert(`¡Mensaje grupal enviado con éxito a toda la categoría ${categoriesList.find(c => c.id === selectedCategory)?.name}!`);
+      } else {
+        // MODO INDIVIDUAL: Solo al jugador seleccionado
+        const { error } = await supabase
+          .from('feedback')
+          .upsert({
+            player_id: selectedPlayer.id,
+            title: feedback.title,
+            message: feedback.message,
+            points: feedback.points,
+            footer: feedback.footer
+          }, { onConflict: 'player_id' });
+
+        if (error) throw error;
+        alert(`Mensaje para ${selectedPlayer.full_name} guardado con éxito.`);
+      }
+    } catch (error) {
+      alert('Error: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const addPoint = () => {
@@ -145,11 +172,38 @@ const CoachMessages = () => {
           </div>
 
           <div className="players-mini-list">
+            <button 
+              className={`player-item-btn bulk-btn ${isBulkMode ? 'active' : ''}`}
+              onClick={() => {
+                setIsBulkMode(true);
+                setSelectedPlayer(null);
+                setFeedback({
+                  title: '¡MENSAJE PARA EL EQUIPO!',
+                  message: `¡Hola equipo! Quiero felicitarlos por el esfuerzo en la semana...`,
+                  points: ['Trabajo en equipo', 'Disciplina y respeto', 'Diversión ante todo'],
+                  footer: '¡Nos vemos en el entrenamiento!'
+                });
+              }}
+            >
+              <div className="bulk-icon-wrapper">
+                <Trophy size={20} color="white" />
+              </div>
+              <div className="player-btn-info">
+                <span className="p-name">TODOS LOS JUGADORES</span>
+                <span className="p-dorsal">Categoría {categoriesList.find(c => c.id === selectedCategory)?.name}</span>
+              </div>
+            </button>
+
+            <div className="list-divider">O seleccionar individual:</div>
+
             {filteredPlayers.map(p => (
               <button 
                 key={p.id} 
-                className={`player-item-btn ${selectedPlayer?.id === p.id ? 'active' : ''}`}
-                onClick={() => setSelectedPlayer(p)}
+                className={`player-item-btn ${selectedPlayer?.id === p.id && !isBulkMode ? 'active' : ''}`}
+                onClick={() => {
+                  setIsBulkMode(false);
+                  setSelectedPlayer(p);
+                }}
               >
                 <img src={p.avatar_url} alt="" />
                 <div className="player-btn-info">
@@ -163,16 +217,20 @@ const CoachMessages = () => {
 
         {/* Lado Derecho: Editor de Feedback */}
         <div className="feedback-editor-container">
-          {selectedPlayer ? (
+          {selectedPlayer || isBulkMode ? (
             <motion.div 
               className="feedback-form-card glass"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              key={selectedPlayer.id}
+              key={isBulkMode ? 'bulk' : selectedPlayer.id}
             >
               <div className="editor-header">
                 <MessageSquare size={20} className="text-sky" />
-                <h2>Editando Mensaje para <span className="text-sky">{selectedPlayer.full_name} (#{selectedPlayer.dorsal})</span></h2>
+                {isBulkMode ? (
+                  <h2>Editando Mensaje Grupal: <span className="text-sky">Toda la {categoriesList.find(c => c.id === selectedCategory)?.name}</span></h2>
+                ) : (
+                  <h2>Editando Mensaje para <span className="text-sky">{selectedPlayer.full_name} (#{selectedPlayer.dorsal})</span></h2>
+                )}
               </div>
 
               <div className="form-fields">
@@ -229,9 +287,12 @@ const CoachMessages = () => {
                   />
                 </div>
 
-                <button className="btn-primary save-feedback-btn" onClick={handleSave}>
+                <button className="btn-primary save-feedback-btn" onClick={handleSave} disabled={loading}>
                   <Save size={18} />
-                  Publicar en el Perfil de {selectedPlayer.full_name?.split(' ')[0]}
+                  {isBulkMode 
+                    ? `Enviar a TODA la Serie (${players.length} jugadores)` 
+                    : `Publicar en el Perfil de ${selectedPlayer.full_name?.split(' ')[0]}`
+                  }
                 </button>
               </div>
             </motion.div>
