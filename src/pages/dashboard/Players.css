@@ -1,4 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;800;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+
 .players-config-page {
+  font-family: 'Plus Jakarta Sans', sans-serif;
   display: flex;
   flex-direction: column;
   gap: 30px;
@@ -306,19 +309,39 @@
 }
 
 .player-modal {
-  width: 900px;
+  width: 920px;
   max-width: 100%;
-  max-height: 95vh;
-  background: var(--bg-surface);
-  border-radius: 24px;
+  max-height: 90vh;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.98) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 28px;
   padding: 40px;
   display: flex;
   flex-direction: column;
   gap: 30px;
   overflow-y: auto;
   position: relative;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  border: none;
+}
+
+/* Scrollbar Premium */
+.player-modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.player-modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.player-modal::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.2);
+  border-radius: 10px;
+}
+
+.player-modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.4);
 }
 
 .modal-header {
@@ -352,9 +375,16 @@
   justify-content: space-between;
   padding: 30px;
   position: relative;
-  border: 1px solid var(--sky-400);
-  background: linear-gradient(180deg, rgba(56, 189, 248, 0.1) 0%, rgba(7, 20, 40, 0.5) 100%);
-  clip-path: polygon(50% 0%, 100% 15%, 100% 85%, 50% 100%, 0% 85%, 0% 15%);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.15) 0%, rgba(7, 20, 40, 0.8) 100%);
+  clip-path: polygon(50% 0%, 100% 10%, 100% 90%, 50% 100%, 0% 90%, 0% 10%);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.player-preview-card:hover {
+  transform: scale(1.02) rotateY(5deg);
+  border-color: var(--sky-400);
+  box-shadow: 0 10px 30px rgba(56, 189, 248, 0.2);
 }
 
 .preview-ovr {
