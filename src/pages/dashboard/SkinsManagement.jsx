@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useSkins } from '../../data/SkinsContext';
-import { Plus, Trash2, Trophy, Image as ImageIcon, Save, X, Star, Edit2 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { Plus, Trash2, Trophy, Image as ImageIcon, Save, X, Star, Edit2, Loader } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { showToast } from '../../components/Toast';
 import './SkinsManagement.css';
 
 const SkinsManagement = () => {
@@ -18,63 +20,52 @@ const SkinsManagement = () => {
   
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setUploadingImage(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        // Redimensionar para no saturar la base de datos (Max 300x300)
-        const canvas = document.createElement('canvas');
-        const MAX_SIZE = 300;
-        let width = img.width;
-        let height = img.height;
+    try {
+      // Subir directamente a Supabase Storage (bucket 'skins')
+      const fileExt = file.name.split('.').pop();
+      const fileName = `skin_${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('skins')
+        .upload(fileName, file, { upsert: true });
 
-        if (width > height) {
-          if (width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          }
-        } else {
-          if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
-        }
+      if (uploadError) throw uploadError;
 
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
+      // Obtener la URL pública
+      const { data: urlData } = supabase.storage
+        .from('skins')
+        .getPublicUrl(fileName);
 
-        // Convertir a base64 WebP (alta compresión)
-        const base64Url = canvas.toDataURL('image/webp', 0.8);
-        setNewSkin({ ...newSkin, image_url: base64Url });
-        setUploadingImage(false);
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
+      setNewSkin(prev => ({ ...prev, image_url: urlData.publicUrl }));
+      showToast('Imagen cargada correctamente ✅', 'success');
+    } catch (err) {
+      console.error('Error subiendo imagen:', err);
+      showToast('Error al subir imagen: ' + err.message, 'error');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSave = async () => {
     if (!newSkin.name || !newSkin.image_url) {
-      return alert('Por favor, completa todos los campos.');
+      return showToast('Por favor, completa el nombre y sube una imagen.', 'error');
     }
     
     const skinToSave = { ...newSkin };
 
     if (editingId) {
       const { error } = await updateSkinAdmin(editingId, skinToSave);
-      if (error) alert(error.message);
-      else alert('Recompensa actualizada.');
+      if (error) showToast('Error al actualizar: ' + error.message, 'error');
+      else showToast('¡Recompensa actualizada exitosamente! ✅', 'success');
     } else {
       const { error } = await addSkinAdmin(skinToSave);
-      if (error) alert(error.message);
-      else alert('Nueva skin añadida con éxito.');
+      if (error) showToast('Error al publicar: ' + error.message, 'error');
+      else showToast('¡Nuevo sticker publicado con éxito! 🎉', 'success');
     }
 
     setShowModal(false);
@@ -103,9 +94,9 @@ const SkinsManagement = () => {
     if (window.confirm('¿Eliminar esta recompensa?')) {
       const { error } = await deleteSkinAdmin(id);
       if (error) {
-        alert('No se pudo eliminar: ' + error.message);
+        showToast('No se pudo eliminar: ' + error.message, 'error');
       } else {
-        alert('Recompensa eliminada exitosamente.');
+        showToast('Recompensa eliminada exitosamente.', 'success');
       }
     }
   };
@@ -215,7 +206,7 @@ const SkinsManagement = () => {
                       ) : (
                         <label className="upload-btn glass" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '25px', cursor: 'pointer', border: '2px dashed rgba(255,255,255,0.1)', borderRadius: '12px', textAlign: 'center'}}>
                           {uploadingImage ? (
-                            <span style={{color: 'var(--sky-blue)'}}>Procesando...</span>
+                            <span style={{color: 'var(--sky-blue)', display:'flex', alignItems:'center', gap:'8px'}}><Loader size={16} className="spin-icon" /> Subiendo imagen...</span>
                           ) : (
                             <>
                               <ImageIcon size={32} style={{opacity: 0.5, marginBottom: '10px'}} />
