@@ -45,7 +45,8 @@ const SkinsManagement = () => {
       showToast('Imagen cargada correctamente ✅', 'success');
     } catch (err) {
       console.error('Error subiendo imagen:', err);
-      showToast('Error al subir imagen: ' + err.message, 'error');
+      // Mostrar error completo para diagnóstico
+      alert('ERROR AL SUBIR IMAGEN:\n\nMensaje: ' + err.message + '\n\nCódigo: ' + (err.statusCode || err.status || 'N/A') + '\n\nDetalle: ' + JSON.stringify(err, null, 2));
     } finally {
       setUploadingImage(false);
     }
