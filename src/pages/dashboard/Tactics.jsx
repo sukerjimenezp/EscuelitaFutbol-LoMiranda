@@ -76,7 +76,7 @@ const Tactics = () => {
         const adapted = data.map(p => ({
           ...p,
           name: p.full_name,
-          image: p.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.full_name)}&background=071428&color=fff&bold=true`
+          image: p.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(p.full_name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&backgroundType=circle`
         }));
         setPlayers(adapted);
       } else {
