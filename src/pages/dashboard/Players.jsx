@@ -208,7 +208,7 @@ const Players = () => {
         birth_date: newPlayer.birth_date || null,
         category_id: newPlayer.category_id,
         role: 'player',
-        avatar_url: newPlayer.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(newPlayer.full_name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&radius=50`,
+        avatar_url: newPlayer.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(newPlayer.full_name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&radius=50&hair=short01,short02,short03,short04,short05,short06,short07,short08,short09,short10,short11,short12,short13,short14,short15,short16,short17,short18,short19&earringsProbability=0`,
         email: newPlayer.email || `${newPlayer.full_name.replace(/\s/g, '').toLowerCase()}@escuela.cl`
       };
 
@@ -345,7 +345,7 @@ const Players = () => {
             physical: playerToSave.physical,
             birth_date: playerToSave.birth_date,
             email: tempEmail,
-            avatar_url: playerToSave.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(playerToSave.full_name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&radius=50`
+            avatar_url: playerToSave.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(playerToSave.full_name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&radius=50&hair=short01,short02,short03,short04,short05,short06,short07,short08,short09,short10,short11,short12,short13,short14,short15,short16,short17,short18,short19&earringsProbability=0`
           }], { onConflict: 'id' });
 
         if (error) {
@@ -639,7 +639,7 @@ const Players = () => {
                       <span>{overall}</span>
                       <small>{newPlayer.position}</small>
                     </div>
-                    <img src={newPlayer.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(newPlayer.full_name || 'default')}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&radius=50`} alt="Preview" />
+                    <img src={newPlayer.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(newPlayer.full_name || 'default')}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&radius=50&hair=short01,short02,short03,short04,short05,short06,short07,short08,short09,short10,short11,short12,short13,short14,short15,short16,short17,short18,short19&earringsProbability=0`} alt="Preview" />
                     <div className="preview-name">{newPlayer.full_name || 'NOMBRE JUGADOR'} {newPlayer.dorsal ? `(#${newPlayer.dorsal})` : ''}</div>
                   </div>
                 </div>

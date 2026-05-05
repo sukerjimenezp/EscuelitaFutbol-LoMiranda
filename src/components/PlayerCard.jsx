@@ -15,7 +15,7 @@ const PlayerCard = ({ player }) => {
             <div className="club-badge-placeholder">LM</div>
           </div>
           <div className="player-face">
-            <img src={image || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(name || 'Player')}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&radius=50`} alt={name} />
+            <img src={image || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(name || 'Player')}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&radius=50&hair=short01,short02,short03,short04,short05,short06,short07,short08,short09,short10,short11,short12,short13,short14,short15,short16,short17,short18,short19&earringsProbability=0`} alt={name} />
           </div>
         </div>
 

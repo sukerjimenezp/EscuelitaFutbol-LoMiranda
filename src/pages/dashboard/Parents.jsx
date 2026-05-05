@@ -138,7 +138,7 @@ const Parents = () => {
             {filteredParents.map(parent => (
               <div key={parent.id} className="player-row" style={{ gridTemplateColumns: '2fr 2fr 3fr 1fr' }}>
                 <div className="col-player">
-                  <img src={parent.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(parent.full_name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&radius=50`} alt={parent.full_name} className="row-avatar" />
+                  <img src={parent.avatar_url || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(parent.full_name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf&radius=50&hair=short01,short02,short03,short04,short05,short06,short07,short08,short09,short10,short11,short12,short13,short14,short15,short16,short17,short18,short19&earringsProbability=0`} alt={parent.full_name} className="row-avatar" />
                   <span className="player-name">{parent.full_name}</span>
                 </div>
                 <div className="col-contact" style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
