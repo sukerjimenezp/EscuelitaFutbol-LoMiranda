@@ -136,21 +136,29 @@ const Players = () => {
   };
 
   const handleEditClick = async (player) => {
-    setEditingPlayerId(player.id);
-    setNewPlayer({
-      ...player
-    });
-    await fetchParents();
-    if (player.parent_id) {
-      setParentOption('existing');
-      setSelectedParentId(player.parent_id);
-    } else {
-      setParentOption('none');
-      setSelectedParentId('');
+    try {
+      setEditingPlayerId(player.id);
+      setNewPlayer({
+        ...player
+      });
+      
+      // Intentar cargar apoderados pero no bloquear si falla
+      fetchParents().catch(err => console.warn('Error cargando apoderados en edición:', err));
+      
+      if (player.parent_id) {
+        setParentOption('existing');
+        setSelectedParentId(player.parent_id);
+      } else {
+        setParentOption('none');
+        setSelectedParentId('');
+      }
+      setNewParentName('');
+      setNewParentPhone('');
+      setShowModal(true);
+    } catch (err) {
+      console.error('Error al abrir editor:', err);
+      showToast('Error al abrir el editor', 'error');
     }
-    setNewParentName('');
-    setNewParentPhone('');
-    setShowModal(true);
   };
 
   const handleDeletePlayer = async (playerId) => {
@@ -196,7 +204,7 @@ const Players = () => {
         birth_date: newPlayer.birth_date || null,
         category_id: newPlayer.category_id,
         role: 'player',
-        avatar_url: newPlayer.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${newPlayer.full_name}`,
+        avatar_url: newPlayer.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(newPlayer.full_name)}`,
         email: newPlayer.email || `${newPlayer.full_name.replace(/\s/g, '').toLowerCase()}@escuela.cl`
       };
 
@@ -333,7 +341,7 @@ const Players = () => {
             physical: playerToSave.physical,
             birth_date: playerToSave.birth_date,
             email: tempEmail,
-            avatar_url: playerToSave.avatar_url
+            avatar_url: playerToSave.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(playerToSave.full_name)}`
           }], { onConflict: 'id' });
 
         if (error) {
@@ -627,7 +635,7 @@ const Players = () => {
                       <span>{overall}</span>
                       <small>{newPlayer.position}</small>
                     </div>
-                    <img src={newPlayer.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${newPlayer.full_name || 'default'}`} alt="Preview" />
+                    <img src={newPlayer.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(newPlayer.full_name || 'default')}`} alt="Preview" />
                     <div className="preview-name">{newPlayer.full_name || 'NOMBRE JUGADOR'} {newPlayer.dorsal ? `(#${newPlayer.dorsal})` : ''}</div>
                   </div>
                 </div>
