@@ -35,7 +35,7 @@ const TeamPage = () => {
           id: p.id,
           name: p.full_name || 'Profesor',
           role: 'Director Técnico',
-          image: p.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + p.id
+          image: p.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.full_name || 'Profesor')}&background=071428&color=fff&bold=true`
         }));
         setTeamStaff(dts);
 

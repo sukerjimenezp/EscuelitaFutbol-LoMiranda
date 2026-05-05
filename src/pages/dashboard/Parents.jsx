@@ -138,7 +138,7 @@ const Parents = () => {
             {filteredParents.map(parent => (
               <div key={parent.id} className="player-row" style={{ gridTemplateColumns: '2fr 2fr 3fr 1fr' }}>
                 <div className="col-player">
-                  <img src={parent.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${parent.full_name}`} alt={parent.full_name} className="row-avatar" />
+                  <img src={parent.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(parent.full_name)}&background=071428&color=fff&bold=true`} alt={parent.full_name} className="row-avatar" />
                   <span className="player-name">{parent.full_name}</span>
                 </div>
                 <div className="col-contact" style={{ display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>

@@ -15,7 +15,7 @@ const PlayerCard = ({ player }) => {
             <div className="club-badge-placeholder">LM</div>
           </div>
           <div className="player-face">
-            <img src={image || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mateo'} alt={name} />
+            <img src={image || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'Player')}&background=071428&color=fff&bold=true`} alt={name} />
           </div>
         </div>
 

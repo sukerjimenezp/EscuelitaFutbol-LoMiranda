@@ -76,7 +76,7 @@ const Tactics = () => {
         const adapted = data.map(p => ({
           ...p,
           name: p.full_name,
-          image: p.avatar_url || `https://api.dicebear.com/7.x/lorelei/svg?seed=${p.full_name}`
+          image: p.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.full_name)}&background=071428&color=fff&bold=true`
         }));
         setPlayers(adapted);
       } else {
